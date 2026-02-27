@@ -1,0 +1,10 @@
+# Robot brain dependencies
+ollama                          # local LLM inference  (ollama pull qwen2.5:3b)
+faster-whisper                  # Whisper STT
+pyserial-asyncio                # async serial port
+python-can                      # CAN bus (socketcan on Linux)
+python-dotenv
+pyttsx3                         # text-to-speech  (swap for piper-tts for better voice)
+
+# Wake word - install from source:
+# pip install git+https://github.com/gadgetlabs/simple-wake-word

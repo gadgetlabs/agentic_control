@@ -1,0 +1,24 @@
+# Environment - never commit secrets or local config
+.env
+
+# Trained model weights - large files, regenerated on first run
+wake_word_embedding.pt
+wake_word_weights.pt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log

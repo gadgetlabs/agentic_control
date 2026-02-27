@@ -20,5 +20,11 @@ venv/
 # macOS
 .DS_Store
 
+# Deploy marker - created by deploy.sh after successful install
+.installed
+
+# Downloaded model files
+voices/
+
 # Logs
 *.log

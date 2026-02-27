@@ -1,30 +1,39 @@
 """
 Text-to-Speech Agent
-Speaks a string aloud using pyttsx3 (offline, works on Linux/macOS/Windows).
+Speaks text aloud using Piper, a fast neural TTS engine built for edge devices.
 
-pyttsx3 is not thread-safe so we initialise it inside the worker function
-each time - this is slightly wasteful but simple and reliable.
+The voice model is loaded once at startup. Synthesis produces raw PCM which
+sounddevice plays directly - no temp files, no subprocesses.
 
-For a better voice on the robot, swap pyttsx3 for piper-tts:
-  pip install piper-tts
-  piper --model en_US-lessac-medium --output_raw "hello" | aplay -r22050 -f S16_LE -c1
+Voice: en_GB-jenny_dioco-medium  (British English, female, ~60 MB)
+Download via deploy.sh or manually:
+  mkdir -p voices
+  curl -L -o voices/en_GB-jenny_dioco-medium.onnx \
+    https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium.onnx
+  curl -L -o voices/en_GB-jenny_dioco-medium.onnx.json \
+    https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium.onnx.json
 """
 
 import asyncio
+import os
 
-import pyttsx3
+import numpy as np
+import sounddevice as sd
+from piper.voice import PiperVoice
+
+VOICE_MODEL = os.getenv("PIPER_VOICE", "voices/en_GB-jenny_dioco-medium.onnx")
 
 
 class TextToSpeechAgent:
-    def __init__(self, rate: int = 145):
-        self.rate = rate
+    def __init__(self):
+        self._voice = PiperVoice.load(VOICE_MODEL)
+        print(f"[tts] loaded piper voice from {VOICE_MODEL}")
 
     def _speak(self, text: str):
-        engine = pyttsx3.init()
-        engine.setProperty("rate", self.rate)
-        engine.say(text)
-        engine.runAndWait()
-        engine.stop()
+        raw   = b"".join(self._voice.synthesize_stream_raw(text))
+        audio = np.frombuffer(raw, dtype=np.int16)
+        sd.play(audio, samplerate=self._voice.config.sample_rate)
+        sd.wait()
 
     async def speak(self, text: str):
         print(f"[tts] {text!r}")

@@ -11,18 +11,60 @@
 
 set -euo pipefail
 
-REPO="https://github.com/YOUR_USERNAME/chaos-brain.git"
-DIR="$HOME/chaos_brain"
+REPO="https://github.com/gadgetlabs/agentic_control.git"
+DIR="$HOME/agentic_control"
 BRANCH="main"
 
-# ── First run: clone and install ──────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────
+download_piper_voice() {
+    local voice="en_GB-jenny_dioco-medium"
+    local base="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/jenny_dioco/medium"
+    local voices_dir="$DIR/voices"
+
+    mkdir -p "$voices_dir"
+
+    if [ -f "$voices_dir/${voice}.onnx" ]; then
+        echo "[deploy] piper voice already present"
+        return
+    fi
+
+    echo "[deploy] downloading piper voice '$voice' (~60 MB) ..."
+    curl -fsSL -o "$voices_dir/${voice}.onnx"      "$base/${voice}.onnx"
+    curl -fsSL -o "$voices_dir/${voice}.onnx.json" "$base/${voice}.onnx.json"
+    echo "[deploy] piper voice downloaded"
+}
+
+install_ollama() {
+    if command -v ollama &>/dev/null; then
+        echo "[deploy] ollama already installed ($(ollama --version))"
+    else
+        echo "[deploy] installing ollama ..."
+        curl -fsSL https://ollama.com/install.sh | sh
+    fi
+}
+
+pull_ollama_model() {
+    # Read the model name from .env if it exists, else fall back to default
+    local model
+    model=$(grep -E "^OLLAMA_MODEL=" "$DIR/.env" 2>/dev/null | cut -d= -f2 || echo "qwen2.5:3b")
+    echo "[deploy] pulling ollama model '$model' (skipped if already present) ..."
+    ollama pull "$model"
+}
+
+# ── First run: clone and install everything ───────────────────────────────
 if [ ! -d "$DIR/.git" ]; then
     echo "[deploy] cloning $REPO ..."
     git clone --branch "$BRANCH" "$REPO" "$DIR"
     cd "$DIR"
+
+    install_ollama
+    pull_ollama_model
+    download_piper_voice
+
     pip install -r requirements.txt
     pip install git+https://github.com/gadgetlabs/simple-wake-word
-    echo "[deploy] installed. copy .env.example to .env and run: python $DIR/main.py"
+
+    echo "[deploy] done. copy .env.example to .env, then: python $DIR/main.py"
     exit 0
 fi
 
@@ -42,6 +84,11 @@ echo "[deploy] $(git rev-parse --short HEAD) → $(git rev-parse --short origin/
 
 # ── Pull and reinstall ────────────────────────────────────────────────────
 git pull origin "$BRANCH" --quiet
+
+# Re-pull the model in case OLLAMA_MODEL changed in this update
+pull_ollama_model
+download_piper_voice
+
 pip install -r requirements.txt --quiet
 
 echo "[deploy] done. restart main.py to apply."

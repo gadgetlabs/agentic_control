@@ -23,6 +23,7 @@ install_ollama() {
     else
         echo "[deploy] installing ollama ..."
         curl -fsSL https://ollama.com/install.sh | sh
+        hash -r   # flush bash's command cache so ollama is found immediately
     fi
 }
 

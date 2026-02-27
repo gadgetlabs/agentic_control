@@ -10,6 +10,9 @@ python-dotenv
 piper-tts                       # neural text-to-speech (en_GB-jenny_dioco-medium voice)
 sounddevice                     # audio playback for piper output
 numpy                           # needed to convert raw PCM bytes for sounddevice
+torch                           # wake word detection (cosine similarity on audio embeddings)
+                                # Jetson users: NVIDIA's JetPack PyTorch wheel is preferred
+                                #   https://developer.nvidia.com/embedded/jetpack
 
-# Wake word - install from source:
-# pip install git+https://github.com/gadgetlabs/simple-wake-word
+# simple-wake-word is cloned by deploy.sh into ./simple-wake-word/
+# and added to sys.path in agents/wake_word.py - no pip install needed

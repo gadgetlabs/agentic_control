@@ -23,6 +23,9 @@ venv/
 # Deploy marker - created by deploy.sh after successful install
 .installed
 
+# Cloned dependencies
+simple-wake-word/
+
 # Downloaded model files
 voices/
 

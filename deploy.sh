@@ -70,9 +70,19 @@ download_piper_voice() {
     echo "[deploy] piper voice downloaded"
 }
 
+clone_wake_word() {
+    local wake_dir="$DIR/simple-wake-word"
+    if [ -d "$wake_dir" ]; then
+        echo "[deploy] simple-wake-word already cloned"
+        return
+    fi
+    echo "[deploy] cloning simple-wake-word ..."
+    git clone https://github.com/gadgetlabs/simple-wake-word "$wake_dir"
+}
+
 install_python_deps() {
     pip install -r "$DIR/requirements.txt"
-    pip install git+https://github.com/gadgetlabs/simple-wake-word
+    clone_wake_word
 }
 
 # ── Clone if the directory doesn't exist yet ─────────────────────────────

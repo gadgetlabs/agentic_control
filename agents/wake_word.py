@@ -11,7 +11,12 @@ ourselves - the public listen_for_wake_word() blocks forever with no callback.
 import asyncio
 import os
 import queue
+import sys
 import threading
+
+# simple-wake-word is not a pip package - deploy.sh clones it next to this project.
+# This inserts its directory so Python can find the SimpleWakeWords module.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'simple-wake-word'))
 
 import torch
 import torch.nn.functional as F

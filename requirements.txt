@@ -3,16 +3,22 @@ strands-agents                  # agentic framework (@tool + Agent loop)
 strands-agents[litellm]         # bridges Strands tool-calling to Ollama
 
 ollama                          # local LLM inference  (ollama pull qwen2.5:3b)
-faster-whisper                  # Whisper STT
+openai-whisper                  # Whisper STT (pure PyTorch - faster-whisper's ctranslate2 has no ARM64 wheels)
 pyserial-asyncio                # async serial port
 python-can                      # CAN bus (socketcan on Linux)
 python-dotenv
 piper-tts                       # neural text-to-speech (en_GB-jenny_dioco-medium voice)
 sounddevice                     # audio playback for piper output
-numpy                           # needed to convert raw PCM bytes for sounddevice
+numpy                           # raw PCM conversion for sounddevice + wake word
+scipy                           # must shadow system apt scipy (1.8.0, broken against numpy 2.x)
+Pillow                          # must shadow system apt Pillow (<9.1.0 missing PIL.Image.Resampling)
 torch                           # wake word detection (cosine similarity on audio embeddings)
                                 # Jetson users: NVIDIA's JetPack PyTorch wheel is preferred
                                 #   https://developer.nvidia.com/embedded/jetpack
 
-# simple-wake-word is cloned by deploy.sh into ./simple-wake-word/
-# and added to sys.path in agents/wake_word.py - no pip install needed
+# simple-wake-word dependencies (cloned repo has no setup.py so we list them here)
+transformers                    # Whisper-tiny encoder used by wake word model
+g2p-en                          # grapheme-to-phoneme: converts "hey chaos" → phoneme tokens
+soundfile                       # audio file I/O
+datasets                        # HuggingFace datasets (used during wake word training)
+pyaudio                         # microphone capture

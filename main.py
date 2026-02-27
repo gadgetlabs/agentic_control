@@ -82,7 +82,7 @@ async def main():
     stt      = SpeechToTextAgent()
     intent   = IntentAgent(model=OLLAMA_MODEL)
     dialogue = DialogueAgent(model=OLLAMA_MODEL)
-    planning = PlanningAgent()
+    planning = PlanningAgent(model=OLLAMA_MODEL)
     tts      = TextToSpeechAgent()
 
     await asyncio.gather(

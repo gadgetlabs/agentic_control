@@ -17,6 +17,15 @@ BRANCH="main"
 MARKER="$DIR/.installed"   # created after a successful install; not committed to git
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+install_system_deps() {
+    echo "[deploy] installing system dependencies ..."
+    sudo apt-get update -qq
+    sudo apt-get install -y \
+        portaudio19-dev \
+        python3-dev \
+        libasound2-dev
+}
+
 install_ollama() {
     if command -v ollama &>/dev/null; then
         echo "[deploy] ollama already installed ($(ollama --version))"
@@ -80,9 +89,22 @@ clone_wake_word() {
     git clone https://github.com/gadgetlabs/simple-wake-word "$wake_dir"
 }
 
+download_nltk_data() {
+    echo "[deploy] downloading NLTK corpora for g2p-en ..."
+    python3 -c "
+import nltk
+nltk.download('averaged_perceptron_tagger_eng', quiet=True)
+nltk.download('cmudict', quiet=True)
+"
+}
+
 install_python_deps() {
+    # These must be force-installed to shadow outdated system apt versions
+    # that break with modern numpy / transformers
+    pip install scipy Pillow --ignore-installed
     pip install -r "$DIR/requirements.txt"
     clone_wake_word
+    download_nltk_data  # idempotent - skips corpora already present
 }
 
 # ── Clone if the directory doesn't exist yet ─────────────────────────────
@@ -99,6 +121,7 @@ cd "$DIR"
 if [ ! -f "$MARKER" ]; then
     echo "[deploy] running first-time install ..."
 
+    install_system_deps
     install_ollama
     ensure_ollama_running
     pull_ollama_model
@@ -130,6 +153,7 @@ ensure_ollama_running
 pull_ollama_model      # no-op if model unchanged
 download_piper_voice   # no-op if voice already present
 pip install -r requirements.txt --quiet
+download_nltk_data     # no-op if corpora already present
 
 echo "[deploy] done. restart main.py to apply."
 

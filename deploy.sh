@@ -27,6 +27,24 @@ install_ollama() {
     fi
 }
 
+ensure_ollama_running() {
+    if ollama list &>/dev/null; then
+        echo "[deploy] ollama server is running"
+        return
+    fi
+    echo "[deploy] starting ollama service ..."
+    sudo systemctl enable --now ollama
+    # Wait up to 15s for the server to accept connections
+    for i in $(seq 1 15); do
+        sleep 1
+        if ollama list &>/dev/null; then
+            echo "[deploy] ollama server ready"
+            return
+        fi
+    done
+    echo "[deploy] warning: ollama server did not start in time, continuing anyway"
+}
+
 pull_ollama_model() {
     local model
     model=$(grep -E "^OLLAMA_MODEL=" "$DIR/.env" 2>/dev/null | cut -d= -f2 || echo "qwen2.5:3b")
@@ -72,6 +90,7 @@ if [ ! -f "$MARKER" ]; then
     echo "[deploy] running first-time install ..."
 
     install_ollama
+    ensure_ollama_running
     pull_ollama_model
     download_piper_voice
     install_python_deps
@@ -97,6 +116,7 @@ echo "[deploy] $(git rev-parse --short HEAD) → $(git rev-parse --short origin/
 # ── Pull and reinstall ────────────────────────────────────────────────────
 git pull origin "$BRANCH" --quiet
 
+ensure_ollama_running
 pull_ollama_model      # no-op if model unchanged
 download_piper_voice   # no-op if voice already present
 pip install -r requirements.txt --quiet

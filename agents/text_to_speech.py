@@ -28,6 +28,9 @@ VOICE_MODEL = os.getenv("PIPER_VOICE", _DEFAULT_VOICE)
 _spk = os.getenv("SPEAKER_DEVICE_INDEX", "").strip()
 SPEAKER_DEVICE = int(_spk) if _spk else None
 
+_spk_rate = os.getenv("SPEAKER_SAMPLE_RATE", "").strip()
+SPEAKER_SAMPLE_RATE = int(_spk_rate) if _spk_rate else None
+
 
 class TextToSpeechAgent:
     def __init__(self):
@@ -35,17 +38,14 @@ class TextToSpeechAgent:
         print(f"[tts] loaded piper voice from {VOICE_MODEL}")
 
     def _speak(self, text: str):
-        from scipy.signal import resample_poly
         from math import gcd
+        from scipy.signal import resample_poly
 
-        raw        = b"".join(self._voice.synthesize_stream_raw(text))
-        audio_i16  = np.frombuffer(raw, dtype=np.int16)
-        audio_f32  = audio_i16.astype(np.float32) / 32768.0
+        raw       = b"".join(self._voice.synthesize_stream_raw(text))
+        audio_f32 = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
 
-        src_rate   = self._voice.config.sample_rate
-        dev_info   = sd.query_devices(SPEAKER_DEVICE) if SPEAKER_DEVICE is not None \
-                     else sd.query_devices(sd.default.device[1])
-        dst_rate   = int(dev_info["default_samplerate"])
+        src_rate = self._voice.config.sample_rate
+        dst_rate = SPEAKER_SAMPLE_RATE or src_rate   # setup_audio.py sets this
 
         if src_rate != dst_rate:
             g         = gcd(src_rate, dst_rate)

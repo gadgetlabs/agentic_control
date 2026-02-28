@@ -21,7 +21,9 @@ import numpy as np
 import sounddevice as sd
 from piper.voice import PiperVoice
 
-VOICE_MODEL = os.getenv("PIPER_VOICE", "voices/en_GB-jenny_dioco-medium.onnx")
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_DEFAULT_VOICE = os.path.join(_PROJECT_ROOT, "voices", "en_GB-jenny_dioco-medium.onnx")
+VOICE_MODEL = os.getenv("PIPER_VOICE", _DEFAULT_VOICE)
 
 
 class TextToSpeechAgent:

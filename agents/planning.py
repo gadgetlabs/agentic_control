@@ -34,7 +34,7 @@ class PlanningAgent:
     def __init__(self, model: str):
         strands_model = LiteLLMModel(
             model_id=f"ollama/{model}",
-            api_base="http://localhost:11434",
+            client_args={"api_base": "http://localhost:11434"},
         )
         self._agent = Agent(
             model=strands_model,

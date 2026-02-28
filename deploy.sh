@@ -68,7 +68,7 @@ download_piper_voice() {
 
     mkdir -p "$voices_dir"
 
-    if [ -f "$voices_dir/${voice}.onnx" ]; then
+    if [ -f "$voices_dir/${voice}.onnx" ] && [ -f "$voices_dir/${voice}.onnx.json" ]; then
         echo "[deploy] piper voice already present"
         return
     fi

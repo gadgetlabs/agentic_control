@@ -53,8 +53,9 @@ class WakeWordAgent:
                 self._target.unsqueeze(0),
             ).item()
 
+            print(f"[wake_word] sim={similarity:.3f} (threshold={SIMILARITY_THRESHOLD:.2f})")
             if similarity > SIMILARITY_THRESHOLD:
-                print(f"[wake_word] detected! (sim={similarity:.2f})")
+                print(f"[wake_word] *** detected! ***")
                 self._queue.put(True)
 
     async def wait(self):

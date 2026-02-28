@@ -45,7 +45,7 @@ from agents.text_to_speech import TextToSpeechAgent
 load_dotenv()
 
 SERIAL_PORT  = os.getenv("SERIAL_PORT",  "/dev/ttyACM0")
-WAKE_WORD    = os.getenv("WAKE_WORD",    "hey chaos")
+WAKE_WORD    = os.getenv("WAKE_WORD",    "hey numpty")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 
 

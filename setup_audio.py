@@ -91,11 +91,12 @@ def test_mic(device_idx: int) -> bool:
 
 
 def test_speaker(device_idx: int) -> bool:
-    print(f"\n[test] Playing 440 Hz tone for 1 second on device [{device_idx}] ...")
+    rate = int(sd.query_devices(device_idx)["default_samplerate"])
+    print(f"\n[test] Playing 440 Hz tone for 1 second on device [{device_idx}] (rate={rate} Hz) ...")
     try:
-        t    = np.linspace(0, 1, 44100, dtype="float32")
+        t    = np.linspace(0, 1, rate, dtype="float32")
         tone = 0.3 * np.sin(2 * np.pi * 440 * t)
-        sd.play(tone, samplerate=44100, device=device_idx)
+        sd.play(tone, samplerate=rate, device=device_idx)
         sd.wait()
         ans = input("  Did you hear the tone? [y/n]: ").strip().lower()
         return ans.startswith("y")

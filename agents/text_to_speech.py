@@ -35,9 +35,23 @@ class TextToSpeechAgent:
         print(f"[tts] loaded piper voice from {VOICE_MODEL}")
 
     def _speak(self, text: str):
-        raw   = b"".join(self._voice.synthesize_stream_raw(text))
-        audio = np.frombuffer(raw, dtype=np.int16)
-        sd.play(audio, samplerate=self._voice.config.sample_rate, device=SPEAKER_DEVICE)
+        from scipy.signal import resample_poly
+        from math import gcd
+
+        raw        = b"".join(self._voice.synthesize_stream_raw(text))
+        audio_i16  = np.frombuffer(raw, dtype=np.int16)
+        audio_f32  = audio_i16.astype(np.float32) / 32768.0
+
+        src_rate   = self._voice.config.sample_rate
+        dev_info   = sd.query_devices(SPEAKER_DEVICE) if SPEAKER_DEVICE is not None \
+                     else sd.query_devices(sd.default.device[1])
+        dst_rate   = int(dev_info["default_samplerate"])
+
+        if src_rate != dst_rate:
+            g         = gcd(src_rate, dst_rate)
+            audio_f32 = resample_poly(audio_f32, dst_rate // g, src_rate // g).astype(np.float32)
+
+        sd.play(audio_f32, samplerate=dst_rate, device=SPEAKER_DEVICE)
         sd.wait()
 
     async def speak(self, text: str):

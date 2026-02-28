@@ -25,6 +25,9 @@ _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DEFAULT_VOICE = os.path.join(_PROJECT_ROOT, "voices", "en_GB-jenny_dioco-medium.onnx")
 VOICE_MODEL = os.getenv("PIPER_VOICE", _DEFAULT_VOICE)
 
+_spk = os.getenv("SPEAKER_DEVICE_INDEX", "").strip()
+SPEAKER_DEVICE = int(_spk) if _spk else None
+
 
 class TextToSpeechAgent:
     def __init__(self):
@@ -34,7 +37,7 @@ class TextToSpeechAgent:
     def _speak(self, text: str):
         raw   = b"".join(self._voice.synthesize_stream_raw(text))
         audio = np.frombuffer(raw, dtype=np.int16)
-        sd.play(audio, samplerate=self._voice.config.sample_rate)
+        sd.play(audio, samplerate=self._voice.config.sample_rate, device=SPEAKER_DEVICE)
         sd.wait()
 
     async def speak(self, text: str):

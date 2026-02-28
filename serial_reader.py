@@ -76,13 +76,18 @@ async def _stub_run():
 
 async def _serial_run(port: str):
     import serial_asyncio
-    reader, _ = await serial_asyncio.open_serial_connection(url=port, baudrate=115200)
-    print(f"[serial] connected on {port}")
     while True:
-        raw  = await reader.readline()
-        line = raw.decode(errors="ignore").strip()
-        if line.startswith("$"):
-            parse_line(line)
+        try:
+            reader, _ = await serial_asyncio.open_serial_connection(url=port, baudrate=115200)
+            print(f"[serial] connected on {port}")
+            while True:
+                raw  = await reader.readline()
+                line = raw.decode(errors="ignore").strip()
+                if line.startswith("$"):
+                    parse_line(line)
+        except Exception as e:
+            print(f"[serial] {port} not available ({e}) - retrying in 5 s ...")
+            await asyncio.sleep(5)
 
 
 async def run(port: str):

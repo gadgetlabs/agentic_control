@@ -45,12 +45,17 @@ class MicrophoneManager:
 
         self._model_rate  = SAMPLE_RATE   # 16000 – what the models need
         self._hw_rate     = hw_rate       # what the hardware runs at
+        self._model_chunk = CHUNK_SAMPLES # samples per chunk the model expects
 
-        # One hardware chunk = one model chunk duration
-        # e.g. hw=48000, model=16000 → hw_blocksize=48000 (1 s)
-        self._model_chunk  = CHUNK_SAMPLES
-        ratio              = self._hw_rate / self._model_rate
-        self._hw_blocksize = round(self._model_chunk * ratio)
+        # Use a small callback blocksize (4096 samples ≈ 0.25 s at 16kHz) to
+        # avoid sounddevice input overflow.  The callback accumulates these
+        # mini-blocks into a full CHUNK_SAMPLES-sized buffer before handing
+        # it to the wake word / capture consumers.
+        CB_FRAMES         = 4096
+        ratio             = self._hw_rate / self._model_rate
+        self._hw_blocksize = round(CB_FRAMES * ratio)
+        self._hw_per_chunk = round(self._model_chunk / CB_FRAMES)  # callbacks per model chunk
+        self._cb_buf: list[np.ndarray] = []   # accumulator for mini-blocks
 
         dev_info = sd.query_devices(
             device_index if device_index is not None else sd.default.device[0]
@@ -80,24 +85,33 @@ class MicrophoneManager:
     # ── Internal callback (runs in sounddevice's C thread) ────────────────────
 
     def _callback(self, indata: np.ndarray, frames: int, time_info, status):
-        if status:
+        if status and "overflow" not in str(status).lower():
             print(f"[mic] {status}")
 
-        raw = indata[:, 0].copy()  # (hw_blocksize,) float32 in [-1, 1]
+        mini = indata[:, 0].copy()  # small block, float32 [-1, 1]
 
-        # Resample to model rate if needed
+        # Resample mini-block to model rate if needed
         if self._hw_rate != self._model_rate:
             from math import gcd
             from scipy.signal import resample_poly
-            g   = gcd(self._model_rate, self._hw_rate)
-            raw = resample_poly(raw, self._model_rate // g, self._hw_rate // g).astype(np.float32)
+            g    = gcd(self._model_rate, self._hw_rate)
+            mini = resample_poly(mini, self._model_rate // g, self._hw_rate // g).astype(np.float32)
 
-        chunk = torch.from_numpy(raw)  # already float32 normalised
+        self._cb_buf.append(mini)
+
+        # Only dispatch a full model chunk once we've accumulated enough mini-blocks
+        if len(self._cb_buf) < self._hw_per_chunk:
+            return
+
+        raw   = np.concatenate(self._cb_buf)[:self._model_chunk]
+        self._cb_buf = []
+
+        chunk = torch.from_numpy(raw)
 
         self._chunk_count += 1
-        if self._chunk_count % 10 == 0:
+        if self._chunk_count % 5 == 0:
             peak = float(np.abs(raw).max())
-            print(f"[mic] {self._chunk_count} chunks, mode={self._mode}, peak={peak:.4f}")
+            print(f"[mic] chunk #{self._chunk_count}  mode={self._mode}  peak={peak:.4f}")
 
         if self._mode == "CAPTURE":
             self._cap_chunks.append(chunk)

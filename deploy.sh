@@ -23,7 +23,9 @@ install_system_deps() {
     sudo apt-get install -y \
         portaudio19-dev \
         python3-dev \
-        libasound2-dev
+        libasound2-dev \
+        espeak-ng \
+        libespeak-ng-dev
 }
 
 install_ollama() {

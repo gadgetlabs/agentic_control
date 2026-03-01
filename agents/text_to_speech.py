@@ -36,6 +36,7 @@ class TextToSpeechAgent:
     def __init__(self):
         self._voice = PiperVoice.load(VOICE_MODEL)
         print(f"[tts] loaded piper voice from {VOICE_MODEL}")
+        print(f"[tts] speaker device={SPEAKER_DEVICE}  sample_rate={SPEAKER_SAMPLE_RATE}")
 
     def _speak(self, text: str):
         import io
@@ -60,6 +61,8 @@ class TextToSpeechAgent:
 
         audio_f32 = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
         dst_rate  = SPEAKER_SAMPLE_RATE or src_rate   # set by setup_audio.py
+        print(f"[tts] synthesised {len(audio_f32)} samples  src={src_rate}Hz → dst={dst_rate}Hz  "
+              f"device={SPEAKER_DEVICE}  peak={np.abs(audio_f32).max():.4f}")
 
         if src_rate != dst_rate:
             g         = gcd(src_rate, dst_rate)

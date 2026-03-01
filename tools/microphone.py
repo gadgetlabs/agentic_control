@@ -1,108 +1,119 @@
 """
 tools/microphone.py  -  Shared microphone resource manager.
 
-Opens the PyAudio input stream exactly once and exposes two interfaces:
+Opens ONE sounddevice InputStream and feeds audio to the correct consumer
+via a state machine:
 
-  mic.next_chunk()      → torch.Tensor   blocking; used by WakeWordAgent
-  await mic.record(s)   → torch.Tensor   async; used by SpeechCaptureAgent
-
-State machine
-─────────────
   WAKE_WORD  (default)
-    Reader thread pushes chunks onto a small queue.
-    next_chunk() pops from that queue.
+    Callback pushes float32 torch chunks onto a small queue.
+    WakeWordAgent drains it via next_chunk().
 
   CAPTURE
-    reader thread accumulates chunks until `seconds` of audio is collected,
-    then fires a threading.Event and switches back to WAKE_WORD.
-    record() awaits that event and returns the concatenated tensor.
+    Callback accumulates chunks until `seconds` of audio is collected,
+    then fires a threading.Event.  SpeechCaptureAgent awaits that via record().
 
-Because only one state is active at a time the mic stream is never shared
-between two consumers simultaneously.
+sounddevice is used (not PyAudio) so device indices match those reported by
+setup_audio.py, which also uses sounddevice.
+
+If the hardware sample rate differs from the 16 kHz the models expect
+(set MIC_SAMPLE_RATE in .env via setup_audio.py), each chunk is resampled
+before being placed on the queue.
 """
 
 import os
 import queue
-import struct
 import sys
 import threading
 
+import numpy as np
 import torch
+import sounddevice as sd
 
-# ── SimpleWakeWords lives as a cloned repo, not a pip package ────────────────
+# SimpleWakeWords defines CHUNK_SAMPLES (16000) and SAMPLE_RATE (16000 Hz)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'simple-wake-word'))
-from SimpleWakeWords import CHUNK_SAMPLES, SAMPLE_RATE  # 16000 Hz, ~16000 samples/chunk
-
-import pyaudio
+from SimpleWakeWords import CHUNK_SAMPLES, SAMPLE_RATE  # model wants 16 kHz
 
 _MIC_ENV = os.getenv("MIC_DEVICE_INDEX", "").strip()
 DEFAULT_DEVICE = int(_MIC_ENV) if _MIC_ENV else None
 
+_MIC_RATE_ENV = os.getenv("MIC_SAMPLE_RATE", "").strip()
+MIC_HW_RATE = int(_MIC_RATE_ENV) if _MIC_RATE_ENV else SAMPLE_RATE
+
 
 class MicrophoneManager:
     def __init__(self, device_index: int | None = DEFAULT_DEVICE):
-        self._chunk = CHUNK_SAMPLES
-        self._rate  = SAMPLE_RATE
+        self._model_rate = SAMPLE_RATE           # 16000 – what the models need
+        self._hw_rate    = MIC_HW_RATE           # what the hardware runs at
 
-        self._pa = pyaudio.PyAudio()
-        dev_info = (
-            self._pa.get_device_info_by_index(device_index)
-            if device_index is not None
-            else self._pa.get_default_input_device_info()
-        )
-        print(f"[mic] opening [{dev_info['index']}] {dev_info['name']} "
-              f"@ {self._rate} Hz  chunk={self._chunk}")
+        # One hardware chunk = one model chunk duration
+        # e.g. hw=48000, model=16000 → hw_blocksize=48000 (1 s)
+        self._model_chunk = CHUNK_SAMPLES
+        ratio = self._hw_rate / self._model_rate
+        self._hw_blocksize = round(self._model_chunk * ratio)
 
-        self._stream = self._pa.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=self._rate,
-            input=True,
-            input_device_index=device_index,
-            frames_per_buffer=self._chunk,
+        dev_info = sd.query_devices(
+            device_index if device_index is not None else sd.default.device[0]
         )
+        print(f"[mic] opening [{dev_info['index']}] '{dev_info['name']}' "
+              f"@ {self._hw_rate} Hz  blocksize={self._hw_blocksize}  "
+              f"(model rate={self._model_rate} Hz)")
 
         self._mode       = "WAKE_WORD"
         self._wake_queue : queue.Queue[torch.Tensor] = queue.Queue(maxsize=4)
         self._cap_chunks : list[torch.Tensor] = []
         self._cap_need   = 0
         self._cap_done   = threading.Event()
+        self._chunk_count = 0
 
-        t = threading.Thread(target=self._reader, daemon=True)
-        t.start()
-        print(f"[mic] reader thread started (id={t.ident})")
+        self._stream = sd.InputStream(
+            device=device_index,
+            samplerate=self._hw_rate,
+            channels=1,
+            dtype="float32",
+            blocksize=self._hw_blocksize,
+            callback=self._callback,
+        )
+        self._stream.start()
+        print("[mic] sounddevice stream started")
 
-    def _reader(self):
-        print("[mic] reader loop alive")
-        n = 0
-        while True:
+    # ── Internal callback (runs in sounddevice's C thread) ────────────────────
+
+    def _callback(self, indata: np.ndarray, frames: int, time_info, status):
+        if status:
+            print(f"[mic] {status}")
+
+        raw = indata[:, 0].copy()  # (hw_blocksize,) float32 in [-1, 1]
+
+        # Resample to model rate if needed
+        if self._hw_rate != self._model_rate:
+            from math import gcd
+            from scipy.signal import resample_poly
+            g   = gcd(self._model_rate, self._hw_rate)
+            raw = resample_poly(raw, self._model_rate // g, self._hw_rate // g).astype(np.float32)
+
+        chunk = torch.from_numpy(raw)  # already float32 normalised
+
+        self._chunk_count += 1
+        if self._chunk_count % 10 == 0:
+            peak = float(np.abs(raw).max())
+            print(f"[mic] {self._chunk_count} chunks, mode={self._mode}, peak={peak:.4f}")
+
+        if self._mode == "CAPTURE":
+            self._cap_chunks.append(chunk)
+            if len(self._cap_chunks) >= self._cap_need:
+                self._mode = "WAKE_WORD"
+                self._cap_done.set()
+        else:
+            # WAKE_WORD – drop oldest if full so the detector never blocks
+            if self._wake_queue.full():
+                try:
+                    self._wake_queue.get_nowait()
+                except queue.Empty:
+                    pass
             try:
-                raw = self._stream.read(self._chunk, exception_on_overflow=False)
-            except Exception as e:
-                print(f"[mic] stream error: {e}")
-                continue
-
-            # Convert exactly as SimpleWakeWords._record_chunk does
-            samples = struct.unpack(f"{self._chunk}h", raw)
-            chunk   = torch.tensor(samples, dtype=torch.float32) / 32768.0
-
-            n += 1
-            if n % 10 == 0:
-                print(f"[mic] {n} chunks read, mode={self._mode}")
-
-            if self._mode == "CAPTURE":
-                self._cap_chunks.append(chunk)
-                if len(self._cap_chunks) >= self._cap_need:
-                    self._mode = "WAKE_WORD"
-                    self._cap_done.set()
-            else:
-                # WAKE_WORD – drop oldest if queue is full rather than blocking
-                if self._wake_queue.full():
-                    try:
-                        self._wake_queue.get_nowait()
-                    except queue.Empty:
-                        pass
-                self._wake_queue.put(chunk)
+                self._wake_queue.put_nowait(chunk)
+            except queue.Full:
+                pass
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -111,13 +122,10 @@ class MicrophoneManager:
         return self._wake_queue.get()
 
     async def record(self, seconds: float) -> torch.Tensor:
-        """
-        Switch to CAPTURE mode, accumulate `seconds` of audio, return tensor.
-        Call from SpeechCaptureAgent after the wake word fires.
-        """
+        """Capture N seconds for Whisper, switch to CAPTURE mode, return tensor."""
         import asyncio
 
-        chunks_needed = max(1, round(seconds * self._rate / self._chunk))
+        chunks_needed = max(1, round(seconds * self._model_rate / self._model_chunk))
         self._cap_chunks = []
         self._cap_need   = chunks_needed
         self._cap_done.clear()
@@ -134,5 +142,6 @@ class MicrophoneManager:
         await asyncio.to_thread(self._cap_done.wait)
 
         audio = torch.cat(self._cap_chunks)
-        print(f"[mic] capture complete – {audio.shape[0]} samples")
+        print(f"[mic] capture complete – {audio.shape[0]} samples  "
+              f"peak={audio.abs().max():.4f}")
         return audio

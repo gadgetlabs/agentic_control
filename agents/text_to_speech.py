@@ -43,16 +43,20 @@ class TextToSpeechAgent:
         from math import gcd
         from scipy.signal import resample_poly
 
-        # synthesize() is the stable piper API – writes a proper WAV into a buffer.
-        # synthesize_stream_raw() exists only in newer versions so we avoid it.
+        # piper's synthesize() only writes frames – it expects the wave writer
+        # to already have channels/sampwidth/framerate set.
+        src_rate = self._voice.config.sample_rate
         buf = io.BytesIO()
-        with wave.open(buf, "wb") as wav:
-            self._voice.synthesize(text, wav)
+        wav = wave.open(buf, "wb")
+        wav.setnchannels(1)
+        wav.setsampwidth(2)          # 16-bit PCM
+        wav.setframerate(src_rate)
+        self._voice.synthesize(text, wav)
+        wav.close()
 
         buf.seek(0)
         with wave.open(buf, "rb") as wav:
-            src_rate  = wav.getframerate()
-            raw       = wav.readframes(wav.getnframes())
+            raw = wav.readframes(wav.getnframes())
 
         audio_f32 = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
         dst_rate  = SPEAKER_SAMPLE_RATE or src_rate   # set by setup_audio.py

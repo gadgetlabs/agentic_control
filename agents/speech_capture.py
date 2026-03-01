@@ -1,38 +1,22 @@
 """
 Speech Capture Agent
-Opens a fresh microphone stream and records N seconds of audio
-after the wake word fires. Returns a float32 torch tensor at 16 kHz.
+Records N seconds of audio after the wake word fires.
+Returns a float32 torch tensor at 16 kHz for Whisper.
+
+Audio comes from the shared MicrophoneManager (tools/microphone.py) which
+switches the mic from wake-word detection mode into capture mode, ensuring
+only one consumer ever reads from the stream at a time.
 """
 
-import asyncio
-
-import numpy as np
-import pyaudio
 import torch
-
-SAMPLE_RATE = 16_000
-CHUNK       = 1_024
+from tools.microphone import MicrophoneManager
 
 
 class SpeechCaptureAgent:
-    def __init__(self, seconds: int = 3):
+    def __init__(self, seconds: int = 3, mic: MicrophoneManager = None):
         self.seconds = seconds
-
-    def _record(self) -> torch.Tensor:
-        pa     = pyaudio.PyAudio()
-        stream = pa.open(
-            format=pyaudio.paInt16, channels=1,
-            rate=SAMPLE_RATE, input=True, frames_per_buffer=CHUNK,
-        )
-        n_chunks = int(SAMPLE_RATE / CHUNK * self.seconds)
-        frames   = [np.frombuffer(stream.read(CHUNK), dtype=np.int16) for _ in range(n_chunks)]
-        stream.stop_stream()
-        stream.close()
-        pa.terminate()
-
-        audio = np.concatenate(frames).astype(np.float32) / 32_768.0
-        return torch.from_numpy(audio)
+        self._mic    = mic
 
     async def record(self) -> torch.Tensor:
         print(f"[capture] recording {self.seconds}s ...")
-        return await asyncio.to_thread(self._record)
+        return await self._mic.record(self.seconds)

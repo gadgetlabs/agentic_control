@@ -34,6 +34,7 @@ import os
 from dotenv import load_dotenv
 
 import serial_reader
+from tools.microphone      import MicrophoneManager
 from agents.wake_word      import WakeWordAgent
 from agents.speech_capture import SpeechCaptureAgent
 from agents.speech_to_text import SpeechToTextAgent
@@ -47,6 +48,16 @@ load_dotenv()
 SERIAL_PORT  = os.getenv("SERIAL_PORT",  "/dev/ttyACM0")
 WAKE_WORD    = os.getenv("WAKE_WORD",    "hey numpty")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+
+
+async def startup(tts: TextToSpeechAgent):
+    """Announce we're alive with an emotion + spoken greeting."""
+    from tools.emotion import set_emotion
+    try:
+        set_emotion("happy")
+    except Exception as e:
+        print(f"[startup] set_emotion failed (CAN not connected?): {e}")
+    await tts.speak("Hey there, good looking!")
 
 
 async def pipeline(wake, capture, stt, intent, dialogue, planning, tts):
@@ -77,13 +88,16 @@ async def pipeline(wake, capture, stt, intent, dialogue, planning, tts):
 
 
 async def main():
-    wake     = WakeWordAgent(WAKE_WORD)
-    capture  = SpeechCaptureAgent(seconds=3)
+    mic      = MicrophoneManager()
+    wake     = WakeWordAgent(WAKE_WORD, mic=mic)
+    capture  = SpeechCaptureAgent(seconds=3, mic=mic)
     stt      = SpeechToTextAgent()
     intent   = IntentAgent(model=OLLAMA_MODEL)
     dialogue = DialogueAgent(model=OLLAMA_MODEL)
     planning = PlanningAgent(model=OLLAMA_MODEL)
     tts      = TextToSpeechAgent()
+
+    await startup(tts)
 
     await asyncio.gather(
         serial_reader.run(SERIAL_PORT),

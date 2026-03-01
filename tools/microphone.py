@@ -33,22 +33,23 @@ import sounddevice as sd
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'simple-wake-word'))
 from SimpleWakeWords import CHUNK_SAMPLES, SAMPLE_RATE  # model wants 16 kHz
 
-_MIC_ENV = os.getenv("MIC_DEVICE_INDEX", "").strip()
-DEFAULT_DEVICE = int(_MIC_ENV) if _MIC_ENV else None
-
-_MIC_RATE_ENV = os.getenv("MIC_SAMPLE_RATE", "").strip()
-MIC_HW_RATE = int(_MIC_RATE_ENV) if _MIC_RATE_ENV else SAMPLE_RATE
-
-
 class MicrophoneManager:
-    def __init__(self, device_index: int | None = DEFAULT_DEVICE):
-        self._model_rate = SAMPLE_RATE           # 16000 – what the models need
-        self._hw_rate    = MIC_HW_RATE           # what the hardware runs at
+    def __init__(self, device_index: int | None = None):
+        # Read at instantiation time, not import time, so load_dotenv() has run
+        if device_index is None:
+            _v = os.getenv("MIC_DEVICE_INDEX", "").strip()
+            device_index = int(_v) if _v else None
+
+        _hw = os.getenv("MIC_SAMPLE_RATE", "").strip()
+        hw_rate = int(_hw) if _hw else SAMPLE_RATE
+
+        self._model_rate  = SAMPLE_RATE   # 16000 – what the models need
+        self._hw_rate     = hw_rate       # what the hardware runs at
 
         # One hardware chunk = one model chunk duration
         # e.g. hw=48000, model=16000 → hw_blocksize=48000 (1 s)
-        self._model_chunk = CHUNK_SAMPLES
-        ratio = self._hw_rate / self._model_rate
+        self._model_chunk  = CHUNK_SAMPLES
+        ratio              = self._hw_rate / self._model_rate
         self._hw_blocksize = round(self._model_chunk * ratio)
 
         dev_info = sd.query_devices(

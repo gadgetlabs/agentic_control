@@ -31,7 +31,10 @@ Strands + Anthropic handles the action loop that needs reliable tool calling.
 import asyncio
 import os
 
+# load_dotenv() MUST run before importing any module that calls os.getenv()
+# at module level (tools/microphone.py, agents/text_to_speech.py, etc.)
 from dotenv import load_dotenv
+load_dotenv()
 
 import serial_reader
 from tools.microphone      import MicrophoneManager

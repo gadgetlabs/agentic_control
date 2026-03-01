@@ -75,6 +75,7 @@ async def _stub_run():
 
 
 async def _serial_run(port: str):
+    import serial
     import serial_asyncio
     while True:
         try:
@@ -85,8 +86,16 @@ async def _serial_run(port: str):
                 line = raw.decode(errors="ignore").strip()
                 if line.startswith("$"):
                     parse_line(line)
-        except Exception as e:
-            print(f"[serial] {port} not available ({e}) - retrying in 5 s ...")
+        except serial.SerialException as e:
+            if "[Errno 2]" in str(e):
+                # Port doesn't exist - Arduino not plugged in. Fall back to stub
+                # rather than spamming retries.
+                print(f"[serial] {port} not found - falling back to stub mode")
+                print(f"[serial] set SERIAL_PORT in .env and restart when Arduino is connected")
+                await _stub_run()
+                return
+            # Other serial errors (e.g. device disconnected mid-run) - retry
+            print(f"[serial] {port} lost ({e}) - retrying in 5 s ...")
             await asyncio.sleep(5)
 
 

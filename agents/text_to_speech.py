@@ -2,8 +2,8 @@
 Text-to-Speech Agent
 Speaks text aloud using Piper, a fast neural TTS engine built for edge devices.
 
-The voice model is loaded once at startup. Synthesis produces raw PCM which
-sounddevice plays directly - no temp files, no subprocesses.
+The voice model is loaded once at startup. synthesize() writes a WAV into a
+BytesIO buffer which is decoded and played via sounddevice – no temp files.
 
 Voice: en_GB-jenny_dioco-medium  (British English, female, ~60 MB)
 Download via deploy.sh or manually:
@@ -38,14 +38,24 @@ class TextToSpeechAgent:
         print(f"[tts] loaded piper voice from {VOICE_MODEL}")
 
     def _speak(self, text: str):
+        import io
+        import wave
         from math import gcd
         from scipy.signal import resample_poly
 
-        raw       = b"".join(self._voice.synthesize_stream_raw(text))
-        audio_f32 = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+        # synthesize() is the stable piper API – writes a proper WAV into a buffer.
+        # synthesize_stream_raw() exists only in newer versions so we avoid it.
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wav:
+            self._voice.synthesize(text, wav)
 
-        src_rate = self._voice.config.sample_rate
-        dst_rate = SPEAKER_SAMPLE_RATE or src_rate   # setup_audio.py sets this
+        buf.seek(0)
+        with wave.open(buf, "rb") as wav:
+            src_rate  = wav.getframerate()
+            raw       = wav.readframes(wav.getnframes())
+
+        audio_f32 = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+        dst_rate  = SPEAKER_SAMPLE_RATE or src_rate   # set by setup_audio.py
 
         if src_rate != dst_rate:
             g         = gcd(src_rate, dst_rate)

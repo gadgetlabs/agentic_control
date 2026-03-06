@@ -363,9 +363,20 @@
 // Config
 // ─────────────────────────────────────────────────────────────────────────────
 const CHART_POINTS   = 120;
-const THRESHOLD      = 0.75;   // shown as red line; update if your model differs
+const THRESHOLD      = 0.20;   // SimpleWakeWords default; matches WAKE_WORD_THRESHOLD env
 const POLL_INTERVAL  = 1000;   // ms, cold path
 const WS_RECONNECT   = 3000;   // ms
+
+// Chart Y range: -1.0 (bottom) to +1.0 (top), zero in middle.
+// sim values typically live in [-0.3, +0.25]; threshold line at +0.20.
+const Y_MIN = -1.0;
+const Y_MAX =  1.0;
+const Y_RANGE = Y_MAX - Y_MIN;
+
+function simToY(sim, H) {
+  // map sim value to canvas pixel Y (top = high value)
+  return H * (1 - (Math.min(Math.max(sim, Y_MIN), Y_MAX) - Y_MIN) / Y_RANGE);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Similarity chart
@@ -395,26 +406,26 @@ function drawSimChart() {
   const W = simCanvas.width, H = simCanvas.height;
   simCtx.clearRect(0, 0, W, H);
 
-  // background grid
+  // grid lines at -0.5, 0, +0.5
   simCtx.strokeStyle = '#21262d';
   simCtx.lineWidth   = 1;
-  for (let y = 0.25; y <= 1.0; y += 0.25) {
-    const py = H - y * H;
-    simCtx.beginPath();
-    simCtx.moveTo(0, py);
-    simCtx.lineTo(W, py);
-    simCtx.stroke();
-  }
+  [-0.5, 0.5].forEach(v => {
+    const py = simToY(v, H);
+    simCtx.beginPath(); simCtx.moveTo(0, py); simCtx.lineTo(W, py); simCtx.stroke();
+  });
+
+  // zero line — bright enough to read, not distracting
+  const zy = simToY(0, H);
+  simCtx.strokeStyle = '#30363d';
+  simCtx.lineWidth   = 1.5;
+  simCtx.beginPath(); simCtx.moveTo(0, zy); simCtx.lineTo(W, zy); simCtx.stroke();
 
   // threshold line
-  const ty = H - THRESHOLD * H;
+  const ty = simToY(THRESHOLD, H);
   simCtx.strokeStyle = '#f85149';
   simCtx.lineWidth   = 1.5;
   simCtx.setLineDash([4, 4]);
-  simCtx.beginPath();
-  simCtx.moveTo(0, ty);
-  simCtx.lineTo(W, ty);
-  simCtx.stroke();
+  simCtx.beginPath(); simCtx.moveTo(0, ty); simCtx.lineTo(W, ty); simCtx.stroke();
   simCtx.setLineDash([]);
 
   if (simData.length < 2) return;
@@ -425,10 +436,10 @@ function drawSimChart() {
   // draw each segment with its colour
   for (let i = startIdx; i < simData.length - 1; i++) {
     const a = simData[i], b = simData[i + 1];
-    const xi = (i - startIdx) * step;
+    const xi  = (i - startIdx)     * step;
     const xi1 = (i - startIdx + 1) * step;
-    const ya = H - Math.min(Math.max(a.sim, 0), 1) * H;
-    const yb = H - Math.min(Math.max(b.sim, 0), 1) * H;
+    const ya  = simToY(a.sim, H);
+    const yb  = simToY(b.sim, H);
 
     simCtx.strokeStyle = stateColour(b.state);
     simCtx.lineWidth   = 2;

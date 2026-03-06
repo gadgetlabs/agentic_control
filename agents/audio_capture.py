@@ -43,7 +43,7 @@ from SimpleWakeWords import (
     SAMPLE_RATE,
     _audio_to_embedding,
     enroll_wake_word,
-    SIMILARITY_THRESHOLD,
+    set_threshold,
 )
 
 _PROJECT_ROOT   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -87,7 +87,13 @@ class AudioCaptureAgent:
             self._target = enroll_wake_word(wake_word)
 
         self._speech_chunks = speech_seconds  # CHUNK = 1 s, so chunks == seconds
-        print(f"[audio] threshold={SIMILARITY_THRESHOLD:.2f}  "
+
+        # Threshold can be tuned via env without touching code.
+        # Default 0.2 matches the SimpleWakeWords reference — the model's peak
+        # similarity is ~0.2-0.22 when the wake word is spoken correctly.
+        self._threshold = float(os.getenv("WAKE_WORD_THRESHOLD", "0.2"))
+        set_threshold(self._threshold)
+        print(f"[audio] threshold={self._threshold:.2f}  "
               f"speech_window={speech_seconds}s")
 
     # ── Internal helpers ──────────────────────────────────────────────────────
@@ -127,9 +133,9 @@ class AudioCaptureAgent:
                     sim=sim, state="IDLE", peak=float(chunk.abs().max())
                 )
                 if n % 3 == 0:                          # log every ~3 s
-                    print(f"[audio] IDLE  sim={sim:.3f}  threshold={SIMILARITY_THRESHOLD:.2f}")
+                    print(f"[audio] IDLE  sim={sim:.3f}  threshold={self._threshold:.2f}")
 
-                if sim > SIMILARITY_THRESHOLD:
+                if sim > self._threshold:
                     print(f"[audio] *** WAKE WORD (sim={sim:.3f}) ***")
                     state  = "LISTENING"
                     speech = []

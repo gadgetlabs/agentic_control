@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHAOS Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --green: #3fb950;
+    --blue: #58a6ff;
+    --orange: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --yellow: #e3b341;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 16px; font-weight: 600; letter-spacing: 1px; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--border);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge.idle     { background: #21262d; color: var(--muted); }
+  .badge.happy    { background: #1a4a25; color: var(--green); }
+  .badge.thinking { background: #102a4c; color: var(--blue); }
+  .badge.sad      { background: #0d2b4e; color: #79c0ff; }
+  .badge.angry    { background: #4a1515; color: var(--red); }
+  .badge.listening { background: #3d2b00; color: var(--orange); }
+  .badge.processing { background: #1b0a40; color: var(--purple); }
+  .badge.speaking  { background: #1a4a25; color: var(--green); }
+
+  .ws-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    transition: background 0.3s;
+  }
+  .ws-dot.connected { background: var(--green); }
+  .spacer { flex: 1; }
+
+  /* ── Main layout ── */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 12px;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-body {
+    padding: 12px;
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ── Similarity chart ── */
+  #sim-canvas {
+    width: 100%;
+    height: 110px;
+    display: block;
+    border-radius: 4px;
+    background: #0d1117;
+  }
+
+  /* ── Big score number ── */
+  .score-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  #sim-score {
+    font-size: 48px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--blue);
+    line-height: 1;
+  }
+  .score-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .label { font-size: 11px; color: var(--muted); }
+  .value { font-size: 13px; font-weight: 600; }
+
+  /* ── Peak bar ── */
+  .peak-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .peak-label { font-size: 11px; color: var(--muted); width: 60px; }
+  .peak-bar-bg {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #peak-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--green);
+    border-radius: 3px;
+    transition: width 0.1s, background 0.2s;
+  }
+  #peak-val { font-size: 11px; color: var(--muted); width: 36px; text-align: right; }
+
+  /* ── Lidar polar ── */
+  #lidar-canvas {
+    width: 100%;
+    height: 140px;
+    display: block;
+    border-radius: 4px;
+    background: #0d1117;
+  }
+
+  /* ── Pipeline phase ── */
+  .phase-flow {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .phase-step {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--border);
+    color: var(--muted);
+    transition: background 0.3s, color 0.3s;
+  }
+  .phase-step.active { background: var(--blue); color: #fff; }
+  .phase-arrow { color: var(--border); font-size: 12px; }
+
+  /* ── Sensor grid ── */
+  .sensor-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .sensor-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .sensor-card .s-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .sensor-card .s-value {
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .sensor-card .s-unit { font-size: 11px; color: var(--muted); margin-left: 2px; }
+
+  /* ── Text fields ── */
+  .text-field { display: flex; flex-direction: column; gap: 3px; }
+  .text-field .tf-label { font-size: 11px; color: var(--muted); }
+  .text-field .tf-value {
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 8px;
+    min-height: 28px;
+    word-break: break-word;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CHAOS</h1>
+  <span id="emotion-badge" class="badge idle">idle</span>
+  <span id="fsm-badge" class="badge idle">IDLE</span>
+  <span class="spacer"></span>
+  <span class="ws-dot" id="ws-dot"></span>
+  <span id="ws-label" style="font-size:11px;color:var(--muted)">disconnected</span>
+</header>
+
+<main>
+  <!-- ── LEFT PANEL ── -->
+  <div style="display:flex;flex-direction:column;gap:12px;overflow:hidden">
+
+    <!-- Similarity chart panel -->
+    <div class="panel" style="flex:0 0 auto">
+      <div class="panel-header">Wake Word Similarity</div>
+      <div class="panel-body">
+        <canvas id="sim-canvas" width="600" height="110"></canvas>
+
+        <div class="score-row">
+          <div id="sim-score">–</div>
+          <div class="score-meta">
+            <div class="label">threshold</div>
+            <div class="value" id="threshold-val">–</div>
+            <div class="label">FSM state</div>
+            <div class="value" id="fsm-text">IDLE</div>
+          </div>
+        </div>
+
+        <div class="peak-wrap">
+          <span class="peak-label">Peak amp</span>
+          <div class="peak-bar-bg"><div id="peak-bar"></div></div>
+          <span id="peak-val">0.000</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lidar panel -->
+    <div class="panel" style="flex:1;min-height:0">
+      <div class="panel-header">Lidar (front arc)</div>
+      <div class="panel-body" style="padding:8px">
+        <canvas id="lidar-canvas" width="400" height="140"></canvas>
+        <div style="font-size:11px;color:var(--muted);text-align:center" id="lidar-status">no data</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── RIGHT PANEL ── -->
+  <div style="display:flex;flex-direction:column;gap:12px;overflow:hidden">
+
+    <!-- Pipeline panel -->
+    <div class="panel" style="flex:0 0 auto">
+      <div class="panel-header">Pipeline</div>
+      <div class="panel-body">
+        <div class="phase-flow">
+          <span class="phase-step" id="ph-idle">idle</span>
+          <span class="phase-arrow">›</span>
+          <span class="phase-step" id="ph-transcribing">transcribing</span>
+          <span class="phase-arrow">›</span>
+          <span class="phase-step" id="ph-thinking">thinking</span>
+          <span class="phase-arrow">›</span>
+          <span class="phase-step" id="ph-speaking">speaking</span>
+        </div>
+
+        <div class="text-field">
+          <div class="tf-label">Heard</div>
+          <div class="tf-value" id="pipe-heard">–</div>
+        </div>
+        <div class="text-field">
+          <div class="tf-label">Intent</div>
+          <div class="tf-value" id="pipe-intent">–</div>
+        </div>
+        <div class="text-field">
+          <div class="tf-label">Response</div>
+          <div class="tf-value" id="pipe-response">–</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sensors panel -->
+    <div class="panel" style="flex:1;min-height:0">
+      <div class="panel-header">Sensors</div>
+      <div class="panel-body">
+        <div class="sensor-grid">
+          <div class="sensor-card">
+            <div class="s-label">RPM Left</div>
+            <div><span class="s-value" id="s-rpm-l">–</span></div>
+          </div>
+          <div class="sensor-card">
+            <div class="s-label">RPM Right</div>
+            <div><span class="s-value" id="s-rpm-r">–</span></div>
+          </div>
+          <div class="sensor-card">
+            <div class="s-label">Odom X</div>
+            <div><span class="s-value" id="s-odom-x">–</span><span class="s-unit">m</span></div>
+          </div>
+          <div class="sensor-card">
+            <div class="s-label">Odom Y</div>
+            <div><span class="s-value" id="s-odom-y">–</span><span class="s-unit">m</span></div>
+          </div>
+          <div class="sensor-card">
+            <div class="s-label">Heading</div>
+            <div><span class="s-value" id="s-heading">–</span><span class="s-unit">°</span></div>
+          </div>
+          <div class="sensor-card">
+            <div class="s-label">Compass</div>
+            <div><span class="s-value" id="s-compass">–</span><span class="s-unit">°</span></div>
+          </div>
+          <div class="sensor-card">
+            <div class="s-label">IMU Roll</div>
+            <div><span class="s-value" id="s-roll">–</span><span class="s-unit">°</span></div>
+          </div>
+          <div class="sensor-card">
+            <div class="s-label">IMU Pitch</div>
+            <div><span class="s-value" id="s-pitch">–</span><span class="s-unit">°</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Config
+// ─────────────────────────────────────────────────────────────────────────────
+const CHART_POINTS   = 120;
+const THRESHOLD      = 0.75;   // shown as red line; update if your model differs
+const POLL_INTERVAL  = 1000;   // ms, cold path
+const WS_RECONNECT   = 3000;   // ms
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Similarity chart
+// ─────────────────────────────────────────────────────────────────────────────
+const simCanvas  = document.getElementById('sim-canvas');
+const simCtx     = simCanvas.getContext('2d');
+const simData    = [];  // {sim, state} rolling window
+
+function resizeCanvas(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  if (canvas.width !== rect.width || canvas.height !== rect.height) {
+    canvas.width  = rect.width  * devicePixelRatio;
+    canvas.height = rect.height * devicePixelRatio;
+  }
+}
+
+function stateColour(state) {
+  switch (state) {
+    case 'LISTENING':   return '#d29922';
+    case 'PROCESSING':  return '#bc8cff';
+    default:            return '#58a6ff';
+  }
+}
+
+function drawSimChart() {
+  resizeCanvas(simCanvas);
+  const W = simCanvas.width, H = simCanvas.height;
+  simCtx.clearRect(0, 0, W, H);
+
+  // background grid
+  simCtx.strokeStyle = '#21262d';
+  simCtx.lineWidth   = 1;
+  for (let y = 0.25; y <= 1.0; y += 0.25) {
+    const py = H - y * H;
+    simCtx.beginPath();
+    simCtx.moveTo(0, py);
+    simCtx.lineTo(W, py);
+    simCtx.stroke();
+  }
+
+  // threshold line
+  const ty = H - THRESHOLD * H;
+  simCtx.strokeStyle = '#f85149';
+  simCtx.lineWidth   = 1.5;
+  simCtx.setLineDash([4, 4]);
+  simCtx.beginPath();
+  simCtx.moveTo(0, ty);
+  simCtx.lineTo(W, ty);
+  simCtx.stroke();
+  simCtx.setLineDash([]);
+
+  if (simData.length < 2) return;
+
+  const step = W / (CHART_POINTS - 1);
+  const startIdx = Math.max(0, simData.length - CHART_POINTS);
+
+  // draw each segment with its colour
+  for (let i = startIdx; i < simData.length - 1; i++) {
+    const a = simData[i], b = simData[i + 1];
+    const xi = (i - startIdx) * step;
+    const xi1 = (i - startIdx + 1) * step;
+    const ya = H - Math.min(Math.max(a.sim, 0), 1) * H;
+    const yb = H - Math.min(Math.max(b.sim, 0), 1) * H;
+
+    simCtx.strokeStyle = stateColour(b.state);
+    simCtx.lineWidth   = 2;
+    simCtx.beginPath();
+    simCtx.moveTo(xi, ya);
+    simCtx.lineTo(xi1, yb);
+    simCtx.stroke();
+  }
+}
+
+function pushSimPoint(sim, state) {
+  simData.push({ sim, state });
+  if (simData.length > CHART_POINTS * 2) simData.splice(0, CHART_POINTS);
+  drawSimChart();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lidar polar chart
+// ─────────────────────────────────────────────────────────────────────────────
+const lidarCanvas = document.getElementById('lidar-canvas');
+const lidarCtx    = lidarCanvas.getContext('2d');
+
+function drawLidar(readings) {
+  // readings: array of {angle_deg, dist_m} or flat array indexed by angle
+  resizeCanvas(lidarCanvas);
+  const W = lidarCanvas.width, H = lidarCanvas.height;
+  lidarCtx.clearRect(0, 0, W, H);
+
+  if (!readings || readings.length === 0) {
+    document.getElementById('lidar-status').textContent = 'no data';
+    return;
+  }
+
+  const cx = W / 2, cy = H * 0.9;
+  const maxDist = 3.0;  // metres
+  const scale = (H * 0.85) / maxDist;
+
+  // grid rings
+  lidarCtx.strokeStyle = '#21262d';
+  lidarCtx.lineWidth   = 1;
+  for (let r = 1; r <= 3; r++) {
+    lidarCtx.beginPath();
+    lidarCtx.arc(cx, cy, r * scale, Math.PI, 0);
+    lidarCtx.stroke();
+  }
+
+  // plot points
+  lidarCtx.fillStyle = '#3fb950';
+  readings.forEach(p => {
+    const angle = (Array.isArray(p) ? p[0] : p.angle_deg) * Math.PI / 180;
+    const dist  = Array.isArray(p) ? p[1] : p.dist_m;
+    if (!dist || dist > maxDist) return;
+    const px = cx + Math.sin(angle - Math.PI) * dist * scale;
+    const py = cy - Math.cos(angle - Math.PI) * dist * scale;
+    lidarCtx.beginPath();
+    lidarCtx.arc(px, py, 2, 0, Math.PI * 2);
+    lidarCtx.fill();
+  });
+
+  document.getElementById('lidar-status').textContent =
+    `${readings.length} points`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = (val !== undefined && val !== null && val !== '') ? val : '–';
+}
+
+function updateFSMBadge(state) {
+  const el = document.getElementById('fsm-badge');
+  el.textContent = state;
+  el.className   = 'badge ' + state.toLowerCase();
+}
+
+function updateEmotionBadge(emotion) {
+  const el = document.getElementById('emotion-badge');
+  el.textContent = emotion;
+  el.className   = 'badge ' + emotion.toLowerCase();
+}
+
+function updatePhase(phase) {
+  ['idle', 'transcribing', 'thinking', 'speaking'].forEach(p => {
+    const el = document.getElementById('ph-' + p);
+    if (el) el.classList.toggle('active', p === phase);
+  });
+}
+
+function updatePeak(peak) {
+  const pct = Math.min(peak * 100, 100);
+  const bar  = document.getElementById('peak-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = peak > 0.5 ? '#f85149' : peak > 0.2 ? '#d29922' : '#3fb950';
+  document.getElementById('peak-val').textContent = peak.toFixed(3);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hot path: WebSocket
+// ─────────────────────────────────────────────────────────────────────────────
+let ws = null;
+let wsReconnectTimer = null;
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url   = `${proto}://${location.host}/ws/audio`;
+  ws          = new WebSocket(url);
+
+  ws.onopen = () => {
+    document.getElementById('ws-dot').classList.add('connected');
+    document.getElementById('ws-label').textContent = 'live';
+    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  };
+
+  ws.onmessage = (ev) => {
+    let d;
+    try { d = JSON.parse(ev.data); } catch { return; }
+    const sim   = parseFloat(d.sim)   || 0;
+    const state = d.state || 'IDLE';
+    const peak  = parseFloat(d.peak)  || 0;
+
+    pushSimPoint(sim, state);
+    setText('sim-score',    sim.toFixed(3));
+    setText('threshold-val', THRESHOLD.toFixed(2));
+    setText('fsm-text', state);
+    updateFSMBadge(state);
+    updatePeak(peak);
+  };
+
+  ws.onclose = ws.onerror = () => {
+    document.getElementById('ws-dot').classList.remove('connected');
+    document.getElementById('ws-label').textContent = 'reconnecting…';
+    wsReconnectTimer = setTimeout(connectWS, WS_RECONNECT);
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cold path: HTTP polling
+// ─────────────────────────────────────────────────────────────────────────────
+async function pollState() {
+  try {
+    const res  = await fetch('/api/state');
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // emotion
+    updateEmotionBadge(data.emotion || 'idle');
+
+    // pipeline
+    const pipe = data.pipeline || {};
+    updatePhase(pipe.phase || 'idle');
+    setText('pipe-heard',    pipe.heard);
+    setText('pipe-intent',   pipe.intent);
+    setText('pipe-response', pipe.response);
+
+    // sensors
+    const s = data.sensors || {};
+    setText('s-rpm-l',   s.rpm_left   !== undefined ? s.rpm_left.toFixed(0)   : null);
+    setText('s-rpm-r',   s.rpm_right  !== undefined ? s.rpm_right.toFixed(0)  : null);
+    setText('s-odom-x',  s.odom_x     !== undefined ? s.odom_x.toFixed(2)     : null);
+    setText('s-odom-y',  s.odom_y     !== undefined ? s.odom_y.toFixed(2)     : null);
+    setText('s-heading', s.heading    !== undefined ? s.heading.toFixed(1)    : null);
+    setText('s-compass', s.compass    !== undefined ? s.compass.toFixed(1)    : null);
+    setText('s-roll',    s.imu_roll   !== undefined ? s.imu_roll.toFixed(1)   : null);
+    setText('s-pitch',   s.imu_pitch  !== undefined ? s.imu_pitch.toFixed(1)  : null);
+
+    // lidar (optional — only if sensor data includes it)
+    if (s.lidar) drawLidar(s.lidar);
+
+  } catch { /* network error — keep polling */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+(async () => {
+  // pre-fill chart from history endpoint
+  try {
+    const res  = await fetch('/api/sim-history');
+    const data = await res.json();
+    (data.history || []).forEach(h => pushSimPoint(h.sim || 0, h.state || 'IDLE'));
+  } catch { /* ignore */ }
+
+  document.getElementById('threshold-val').textContent = THRESHOLD.toFixed(2);
+  connectWS();
+  setInterval(pollState, POLL_INTERVAL);
+  pollState();
+
+  // redraw chart on window resize
+  window.addEventListener('resize', drawSimChart);
+})();
+</script>
+</body>
+</html>

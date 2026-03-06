@@ -28,6 +28,8 @@ import os
 import struct
 import sys
 
+import state_bus
+
 import pyaudio
 import torch
 import torch.nn.functional as F
@@ -114,6 +116,9 @@ class AudioCaptureAgent:
 
             if state == "IDLE":
                 sim = self._sim(chunk)
+                state_bus.publish_audio_chunk(
+                    sim=sim, state="IDLE", peak=float(chunk.abs().max())
+                )
                 if n % 3 == 0:                          # log every ~3 s
                     print(f"[audio] IDLE  sim={sim:.3f}  threshold={SIMILARITY_THRESHOLD:.2f}")
 
@@ -124,6 +129,9 @@ class AudioCaptureAgent:
 
             elif state == "LISTENING":
                 speech.append(chunk)
+                state_bus.publish_audio_chunk(
+                    sim=1.0, state="LISTENING", peak=float(chunk.abs().max())
+                )
                 remaining = self._speech_chunks - len(speech)
                 print(f"[audio] LISTENING {len(speech)}/{self._speech_chunks}  "
                       f"({remaining}s left)")
@@ -132,6 +140,9 @@ class AudioCaptureAgent:
                     result = torch.cat(speech)
                     print(f"[audio] captured {result.shape[0]} samples  "
                           f"peak={result.abs().max():.4f}")
+                    state_bus.publish_audio_chunk(
+                        sim=1.0, state="PROCESSING", peak=float(result.abs().max())
+                    )
                     return result
 
     # ── Public API ────────────────────────────────────────────────────────────

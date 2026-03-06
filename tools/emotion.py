@@ -14,6 +14,7 @@ CAN 0x107: emotion command
 
 from strands import tool
 
+import state_bus
 from tools._can import send
 
 EMOTIONS = {"idle": 0, "happy": 1, "thinking": 2, "sad": 3, "angry": 4}
@@ -29,4 +30,5 @@ def set_emotion(emotion: str) -> str:
     if code is None:
         return f"unknown emotion '{emotion}'. options: {list(EMOTIONS)}"
     send(0x107, [code])
+    state_bus.set_current_emotion(emotion)
     return f"emotion={emotion}"

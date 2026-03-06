@@ -28,13 +28,17 @@ Strands + Anthropic handles the action loop that needs reliable tool calling.
 
 import asyncio
 import os
+import time
 
 # load_dotenv() MUST run before importing any module that calls os.getenv()
 # at module level (tools/microphone.py, agents/text_to_speech.py, etc.)
 from dotenv import load_dotenv
 load_dotenv()
 
+import uvicorn
 import serial_reader
+import state_bus
+from webapp.server import app as dashboard_app
 from agents.audio_capture  import AudioCaptureAgent
 from agents.speech_to_text import SpeechToTextAgent
 from agents.intent         import IntentAgent
@@ -60,18 +64,23 @@ async def startup(tts: TextToSpeechAgent):
 async def pipeline(audio_capture, stt, intent, dialogue, planning, tts):
     while True:
         # ── Idle + Capture ────────────────────────────────────────────────
+        state_bus.pipeline_state.update({"phase": "idle", "ts": time.time()})
         print("\n[idle] waiting for wake word ...")
         audio = await audio_capture.listen()
 
         # ── Transcribe ────────────────────────────────────────────────────
+        state_bus.pipeline_state.update({"phase": "transcribing", "ts": time.time()})
         text  = await stt.transcribe(audio)
+        state_bus.pipeline_state.update({"heard": text, "ts": time.time()})
         print(f"[stt]    {text!r}")
 
         if not text:
             continue
 
         # ── Think ─────────────────────────────────────────────────────────
+        state_bus.pipeline_state.update({"phase": "thinking", "ts": time.time()})
         kind = await intent.classify(text)
+        state_bus.pipeline_state["intent"] = kind.get("type", "unknown")
         print(f"[intent] {kind}")
 
         if kind.get("type") == "dialogue":
@@ -80,6 +89,7 @@ async def pipeline(audio_capture, stt, intent, dialogue, planning, tts):
             response = await planning.plan(text)
 
         # ── Speak ─────────────────────────────────────────────────────────
+        state_bus.pipeline_state.update({"phase": "speaking", "response": response, "ts": time.time()})
         await tts.speak(response)
 
 
@@ -93,9 +103,17 @@ async def main():
 
     await startup(tts)
 
+    uv_config = uvicorn.Config(
+        dashboard_app, host="0.0.0.0", port=8080,
+        log_level="warning", loop="none",
+    )
+    uv_server = uvicorn.Server(uv_config)
+
     await asyncio.gather(
         serial_reader.run(SERIAL_PORT),
         pipeline(audio_capture, stt, intent, dialogue, planning, tts),
+        uv_server.serve(),
+        state_bus._audio_drainer(),
     )
 
 

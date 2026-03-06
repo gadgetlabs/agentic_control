@@ -22,4 +22,6 @@ transformers                    # Whisper-tiny encoder used by wake word model
 g2p-en                          # grapheme-to-phoneme: converts "hey chaos" → phoneme tokens
 soundfile                       # audio file I/O
 datasets                        # HuggingFace datasets (used during wake word training)
-pyaudio                         # microphone capture
+pyaudio
+fastapi
+uvicorn[standard]                         # microphone capture

@@ -43,7 +43,7 @@ from agents.planning       import PlanningAgent
 from agents.text_to_speech import TextToSpeechAgent
 
 SERIAL_PORT  = os.getenv("SERIAL_PORT",  "/dev/ttyACM0")
-WAKE_WORD    = os.getenv("WAKE_WORD",    "hey numpty")
+WAKE_WORD    = os.getenv("WAKE_WORD",    "didgeridoo")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 
 

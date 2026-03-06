@@ -5,10 +5,8 @@ Pipeline (runs in a loop forever):
 
   [idle]
     │
-    ▼  WakeWordAgent      background thread, wakes this loop on detection
-    │
-    ▼  SpeechCaptureAgent records N seconds of audio after wake word
-    │
+    ▼  AudioCaptureAgent  single PyAudio loop: IDLE→wake word→LISTENING→return
+    │                     (wake word detection + speech capture in one agent)
     ▼  SpeechToTextAgent  Whisper: audio tensor → text string
     │
     ▼  IntentAgent        Ollama: classify as "dialogue" or "action"
@@ -37,16 +35,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import serial_reader
-from tools.microphone      import MicrophoneManager
-from agents.wake_word      import WakeWordAgent
-from agents.speech_capture import SpeechCaptureAgent
+from agents.audio_capture  import AudioCaptureAgent
 from agents.speech_to_text import SpeechToTextAgent
 from agents.intent         import IntentAgent
 from agents.dialogue       import DialogueAgent
 from agents.planning       import PlanningAgent
 from agents.text_to_speech import TextToSpeechAgent
-
-load_dotenv()
 
 SERIAL_PORT  = os.getenv("SERIAL_PORT",  "/dev/ttyACM0")
 WAKE_WORD    = os.getenv("WAKE_WORD",    "hey numpty")
@@ -63,14 +57,13 @@ async def startup(tts: TextToSpeechAgent):
     await tts.speak("Hey there, good looking!")
 
 
-async def pipeline(wake, capture, stt, intent, dialogue, planning, tts):
+async def pipeline(audio_capture, stt, intent, dialogue, planning, tts):
     while True:
-        # ── Idle ──────────────────────────────────────────────────────────
+        # ── Idle + Capture ────────────────────────────────────────────────
         print("\n[idle] waiting for wake word ...")
-        await wake.wait()
+        audio = await audio_capture.listen()
 
-        # ── Hear ──────────────────────────────────────────────────────────
-        audio = await capture.record()
+        # ── Transcribe ────────────────────────────────────────────────────
         text  = await stt.transcribe(audio)
         print(f"[stt]    {text!r}")
 
@@ -91,9 +84,7 @@ async def pipeline(wake, capture, stt, intent, dialogue, planning, tts):
 
 
 async def main():
-    mic      = MicrophoneManager()
-    wake     = WakeWordAgent(WAKE_WORD, mic=mic)
-    capture  = SpeechCaptureAgent(seconds=3, mic=mic)
+    audio_capture = AudioCaptureAgent(WAKE_WORD, speech_seconds=4)
     stt      = SpeechToTextAgent()
     intent   = IntentAgent(model=OLLAMA_MODEL)
     dialogue = DialogueAgent(model=OLLAMA_MODEL)
@@ -104,7 +95,7 @@ async def main():
 
     await asyncio.gather(
         serial_reader.run(SERIAL_PORT),
-        pipeline(wake, capture, stt, intent, dialogue, planning, tts),
+        pipeline(audio_capture, stt, intent, dialogue, planning, tts),
     )
 
 

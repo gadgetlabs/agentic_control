@@ -7,6 +7,7 @@ openai-whisper                  # Whisper STT (pure PyTorch - faster-whisper's c
 pyserial-asyncio                # async serial port
 python-can                      # CAN bus (socketcan on Linux)
 python-dotenv
+pathvalidate                    # path sanitisation (strands-agents dependency)
 piper-tts                       # neural text-to-speech (en_GB-jenny_dioco-medium voice)
 sounddevice                     # audio playback for piper output
 numpy                           # raw PCM conversion for sounddevice + wake word

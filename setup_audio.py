@@ -142,7 +142,12 @@ def test_mic(device_idx: int) -> tuple[bool, int]:
         bar  = "█" * min(int(peak * 50), 50)
         print(f"  avg={avg:.4f}  peak={peak:.4f}  |{bar:<50s}|")
         if peak < 0.001:
-            print("  WARNING: level very low – mic may be muted or wrong device")
+            print("  WARNING: level very low – mic is likely muted or at zero gain in ALSA")
+            print("  Fix with:")
+            print("    alsamixer -c 0          # press F4 for Capture, UP to raise gain")
+            print("    amixer -c 0 sset Mic 100% cap")
+            print("    amixer -c 0 sset Capture 100% cap")
+            print("  Then run: sudo alsactl store")
             return False, rate
         print("  OK")
         return True, rate

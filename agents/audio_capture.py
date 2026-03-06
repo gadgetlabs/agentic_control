@@ -4,8 +4,9 @@ Audio Capture Agent
 Single blocking loop, two-state FSM, one PyAudio stream.
 
   IDLE
-    Read one chunk from the mic.
-    Run wake word similarity against the enrolled embedding.
+    Read one chunk from the mic (1 s).
+    Maintain a 2-chunk (2 s) sliding window — scores the last two chunks
+    concatenated so multi-syllable wake words are never split at a boundary.
     Log every few chunks so similarity is visible.
     On detection → switch to LISTENING.
 
@@ -109,13 +110,19 @@ class AudioCaptureAgent:
         state  = "IDLE"
         speech = []
         n      = 0
+        # 2-chunk (2 s) sliding window so "didgeridoo" is never cut across
+        # a block boundary.  PyAudio still reads in 1 s chunks; we just cat
+        # the last two before scoring.
+        win_buf: collections.deque = collections.deque(maxlen=2)
 
         while True:
             chunk = self._read()
             n    += 1
 
             if state == "IDLE":
-                sim = self._sim(chunk)
+                win_buf.append(chunk)
+                window = torch.cat(list(win_buf))   # 1 s until buf fills, then 2 s
+                sim = self._sim(window)
                 state_bus.publish_audio_chunk(
                     sim=sim, state="IDLE", peak=float(chunk.abs().max())
                 )

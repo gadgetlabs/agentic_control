@@ -41,6 +41,12 @@ async def api_state():
     })
 
 
+@app.post("/api/trigger")
+async def api_trigger():
+    state_bus.manual_trigger.set()
+    return JSONResponse({"ok": True})
+
+
 @app.get("/api/sim-history")
 async def api_sim_history():
     return JSONResponse({"history": list(state_bus.sim_history)})

@@ -132,6 +132,14 @@ class AudioCaptureAgent:
             n    += 1
 
             if state == "IDLE":
+                # Manual trigger from dashboard button
+                if state_bus.manual_trigger.is_set():
+                    state_bus.manual_trigger.clear()
+                    print("[audio] *** MANUAL TRIGGER ***")
+                    state  = "LISTENING"
+                    speech = []
+                    continue
+
                 win_buf.append(chunk)
                 window = torch.cat(list(win_buf))   # 1 s until buf fills, then 2 s
                 sim = self._sim(window)

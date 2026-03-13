@@ -70,6 +70,22 @@
     transition: background 0.3s;
   }
   .ws-dot.connected { background: var(--green); }
+
+  #trigger-btn {
+    padding: 5px 18px;
+    border-radius: 20px;
+    border: none;
+    background: var(--blue);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.15s, transform 0.1s;
+  }
+  #trigger-btn:hover  { background: #79c0ff; }
+  #trigger-btn:active { transform: scale(0.95); }
+  #trigger-btn.fired  { background: var(--orange); }
   .spacer { flex: 1; }
 
   /* ── Main layout ── */
@@ -238,6 +254,7 @@
   <h1>CHAOS</h1>
   <span id="emotion-badge" class="badge idle">idle</span>
   <span id="fsm-badge" class="badge idle">IDLE</span>
+  <button id="trigger-btn" onclick="manualTrigger()">&#9654; TALK</button>
   <span class="spacer"></span>
   <span class="ws-dot" id="ws-dot"></span>
   <span id="ws-label" style="font-size:11px;color:var(--muted)">disconnected</span>
@@ -568,6 +585,7 @@ function connectWS() {
     setText('fsm-text', state);
     updateFSMBadge(state);
     updatePeak(peak);
+    _triggerListeners.forEach(fn => fn(state));
   };
 
   ws.onclose = ws.onerror = () => {
@@ -612,6 +630,30 @@ async function pollState() {
 
   } catch { /* network error — keep polling */ }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Manual trigger
+// ─────────────────────────────────────────────────────────────────────────────
+async function manualTrigger() {
+  const btn = document.getElementById('trigger-btn');
+  btn.classList.add('fired');
+  btn.textContent = '⏺ LISTENING…';
+  btn.disabled = true;
+  try {
+    await fetch('/api/trigger', { method: 'POST' });
+  } catch { /* ignore */ }
+  // Re-enable once FSM leaves LISTENING (next WS message with non-LISTENING state)
+  const restore = (state) => {
+    if (state !== 'LISTENING') {
+      btn.classList.remove('fired');
+      btn.innerHTML = '&#9654; TALK';
+      btn.disabled = false;
+      _triggerListeners.delete(restore);
+    }
+  };
+  _triggerListeners.add(restore);
+}
+const _triggerListeners = new Set();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Init

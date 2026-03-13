@@ -46,9 +46,9 @@ from agents.dialogue       import DialogueAgent
 from agents.planning       import PlanningAgent
 from agents.text_to_speech import TextToSpeechAgent
 
-SERIAL_PORT  = os.getenv("SERIAL_PORT",  "/dev/ttyACM0")
-WAKE_WORD    = os.getenv("WAKE_WORD",    "didgeridoo")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+SERIAL_PORT = os.getenv("SERIAL_PORT", "/dev/ttyACM0")
+WAKE_WORD   = os.getenv("WAKE_WORD",   "didgeridoo")
+LLM_MODEL   = os.getenv("LLM_MODEL",   "gemini/gemini-2.0-flash")
 
 
 async def startup(tts: TextToSpeechAgent):
@@ -110,9 +110,9 @@ async def pipeline(audio_capture, stt, intent, dialogue, planning, tts):
 async def main():
     audio_capture = AudioCaptureAgent(WAKE_WORD, speech_seconds=4)
     stt      = SpeechToTextAgent()
-    intent   = IntentAgent(model=OLLAMA_MODEL)
-    dialogue = DialogueAgent(model=OLLAMA_MODEL)
-    planning = PlanningAgent(model=OLLAMA_MODEL)
+    intent   = IntentAgent(model=LLM_MODEL)
+    dialogue = DialogueAgent(model=LLM_MODEL)
+    planning = PlanningAgent(model=LLM_MODEL)
     tts      = TextToSpeechAgent()
 
     await startup(tts)

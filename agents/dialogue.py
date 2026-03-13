@@ -2,11 +2,13 @@
 Dialogue Agent
 Generates a short spoken response for conversational commands.
 The reply is passed to the TTS agent so it should be plain prose - no markdown.
+
+Uses litellm so the backend is swappable via LLM_MODEL env var.
 """
 
 import asyncio
 
-import ollama
+import litellm
 
 SYSTEM = """
 You are CHAOS, a small friendly wheeled robot.
@@ -20,14 +22,14 @@ class DialogueAgent:
         self.model = model
 
     def _respond(self, text: str) -> str:
-        response = ollama.chat(
+        response = litellm.completion(
             model=self.model,
             messages=[
                 {"role": "system", "content": SYSTEM},
                 {"role": "user",   "content": text},
             ],
         )
-        return response.message.content.strip()
+        return response.choices[0].message.content.strip()
 
     async def respond(self, text: str) -> str:
         return await asyncio.to_thread(self._respond, text)

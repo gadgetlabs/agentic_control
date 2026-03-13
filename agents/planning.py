@@ -1,15 +1,15 @@
 """
-Planning Agent  (Strands Agent + Qwen via Ollama)
+Planning Agent  (Strands Agent + LiteLLM)
 
-A Strands Agent backed by a local Qwen model running in Ollama.
-LiteLLM bridges between Strands' tool-calling interface and Ollama's API.
-
-The agent receives the transcribed voice command, reasons about which tools
-to call, then calls drive_for / stop / set_emotion directly.
-The tool calls ARE the motor control - no separate execution step needed.
+Backed by whatever model LLM_MODEL points at.
+For Ollama models (model starts with "ollama/"), api_base is set automatically
+from OLLAMA_API_BASE env var (default: http://localhost:11434).
+For cloud models (gemini/, claude/, gpt-*) no extra config is needed beyond
+the provider's API key env var.
 """
 
 import asyncio
+import os
 
 from strands import Agent
 from strands.models.litellm import LiteLLMModel
@@ -32,10 +32,12 @@ Guidelines:
 
 class PlanningAgent:
     def __init__(self, model: str):
-        strands_model = LiteLLMModel(
-            model_id=f"ollama/{model}",
-            client_args={"api_base": "http://localhost:11434"},
-        )
+        client_args = {}
+        if model.startswith("ollama/"):
+            client_args["api_base"] = os.getenv(
+                "OLLAMA_API_BASE", "http://localhost:11434"
+            )
+        strands_model = LiteLLMModel(model_id=model, client_args=client_args)
         self._agent = Agent(
             model=strands_model,
             tools=[drive_for, stop, set_emotion, get_sensors],

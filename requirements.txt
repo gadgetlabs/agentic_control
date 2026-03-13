@@ -1,8 +1,9 @@
 # Robot brain dependencies
 strands-agents                  # agentic framework (@tool + Agent loop)
-strands-agents[litellm]         # bridges Strands tool-calling to Ollama
+strands-agents[litellm]         # bridges Strands tool-calling to any LiteLLM backend
+litellm                         # unified LLM API (Google, OpenAI, Ollama, Anthropic, ...)
 
-ollama                          # local LLM inference  (ollama pull qwen2.5:3b)
+ollama                          # local LLM inference (optional - used when LLM_MODEL=ollama/...)
 openai-whisper                  # Whisper STT (pure PyTorch - faster-whisper's ctranslate2 has no ARM64 wheels)
 pyserial-asyncio                # async serial port
 python-can                      # CAN bus (socketcan on Linux)

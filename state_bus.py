@@ -71,6 +71,10 @@ pipeline_state: dict = {
     "ts": 0.0,
 }
 
+# ── Manual wake trigger (set from async HTTP handler, read from audio thread) ──
+# threading.Event is safe to set() from any thread or coroutine.
+manual_trigger: threading.Event = threading.Event()
+
 # ── Emotion (thread-safe: may be set from Strands executor thread) ────────────
 _emotion_lock = threading.Lock()
 _current_emotion: str = "idle"

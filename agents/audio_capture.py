@@ -28,6 +28,7 @@ import collections
 import os
 import struct
 import sys
+import time
 
 import state_bus
 
@@ -105,10 +106,15 @@ class AudioCaptureAgent:
         return torch.tensor(samples, dtype=torch.float32) / 32768.0
 
     def _sim(self, chunk: torch.Tensor) -> float:
+        t0  = time.perf_counter()
         emb = _audio_to_embedding(chunk)
-        return F.cosine_similarity(
+        sim = F.cosine_similarity(
             emb.unsqueeze(0), self._target.unsqueeze(0)
         ).item()
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        if elapsed_ms > 200:   # only log when it's suspiciously slow
+            print(f"[perf] embed       {elapsed_ms:.0f}ms  (>{200}ms threshold)")
+        return sim
 
     # ── FSM loop (runs in a thread via asyncio.to_thread) ─────────────────────
 

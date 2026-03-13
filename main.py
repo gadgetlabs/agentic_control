@@ -61,36 +61,50 @@ async def startup(tts: TextToSpeechAgent):
     await tts.speak("Hey there, good looking!")
 
 
+def _ms(t0: float) -> str:
+    return f"{(time.perf_counter() - t0) * 1000:.0f}ms"
+
+
 async def pipeline(audio_capture, stt, intent, dialogue, planning, tts):
     while True:
         # ── Idle + Capture ────────────────────────────────────────────────
         state_bus.pipeline_state.update({"phase": "idle", "ts": time.time()})
         print("\n[idle] waiting for wake word ...")
+        t0 = time.perf_counter()
         audio = await audio_capture.listen()
+        print(f"[perf] listen      {_ms(t0)}")
 
         # ── Transcribe ────────────────────────────────────────────────────
         state_bus.pipeline_state.update({"phase": "transcribing", "ts": time.time()})
+        t0 = time.perf_counter()
         text  = await stt.transcribe(audio)
+        print(f"[perf] stt         {_ms(t0)}  → {text!r}")
         state_bus.pipeline_state.update({"heard": text, "ts": time.time()})
-        print(f"[stt]    {text!r}")
 
         if not text:
             continue
 
         # ── Think ─────────────────────────────────────────────────────────
         state_bus.pipeline_state.update({"phase": "thinking", "ts": time.time()})
+        t0 = time.perf_counter()
         kind = await intent.classify(text)
+        print(f"[perf] intent      {_ms(t0)}  → {kind}")
         state_bus.pipeline_state["intent"] = kind.get("type", "unknown")
-        print(f"[intent] {kind}")
 
         if kind.get("type") == "dialogue":
+            t0 = time.perf_counter()
             response = await dialogue.respond(text)
+            print(f"[perf] dialogue    {_ms(t0)}")
         else:
+            t0 = time.perf_counter()
             response = await planning.plan(text)
+            print(f"[perf] planning    {_ms(t0)}")
 
         # ── Speak ─────────────────────────────────────────────────────────
         state_bus.pipeline_state.update({"phase": "speaking", "response": response, "ts": time.time()})
+        t0 = time.perf_counter()
         await tts.speak(response)
+        print(f"[perf] tts         {_ms(t0)}")
 
 
 async def main():

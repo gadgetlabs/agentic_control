@@ -47,4 +47,4 @@ class PlanningAgent:
     async def plan(self, text: str) -> str:
         print(f"[planning] {text!r}")
         result = await self._agent.invoke_async(text)
-        return result.output
+        return str(result)

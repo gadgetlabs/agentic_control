@@ -159,11 +159,15 @@ class AudioCaptureAgent:
                 state_bus.publish_audio_chunk(
                     sim=1.0, state="LISTENING", peak=float(chunk.abs().max())
                 )
-                remaining = self._speech_chunks - len(speech)
-                print(f"[audio] LISTENING {len(speech)}/{self._speech_chunks}  "
-                      f"({remaining}s left)")
+                print(f"[audio] LISTENING {len(speech)}s recorded  "
+                      f"(press STOP or wait {self._speech_chunks}s max)")
 
-                if len(speech) >= self._speech_chunks:
+                stopped_early = state_bus.stop_listening.is_set()
+                if stopped_early:
+                    state_bus.stop_listening.clear()
+                    print("[audio] LISTENING stopped by user")
+
+                if stopped_early or len(speech) >= self._speech_chunks:
                     result = torch.cat(speech)
                     print(f"[audio] captured {result.shape[0]} samples  "
                           f"peak={result.abs().max():.4f}")

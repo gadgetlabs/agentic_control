@@ -585,7 +585,7 @@ function connectWS() {
     setText('fsm-text', state);
     updateFSMBadge(state);
     updatePeak(peak);
-    _triggerListeners.forEach(fn => fn(state));
+    _updateTriggerBtn(state);
   };
 
   ws.onclose = ws.onerror = () => {
@@ -632,28 +632,35 @@ async function pollState() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Manual trigger
+// Talk / Stop toggle — driven by FSM state from WebSocket
 // ─────────────────────────────────────────────────────────────────────────────
-async function manualTrigger() {
+let _fsm = 'IDLE';
+
+function _updateTriggerBtn(state) {
+  _fsm = state;
   const btn = document.getElementById('trigger-btn');
-  btn.classList.add('fired');
-  btn.textContent = '⏺ LISTENING…';
-  btn.disabled = true;
-  try {
-    await fetch('/api/trigger', { method: 'POST' });
-  } catch { /* ignore */ }
-  // Re-enable once FSM leaves LISTENING (next WS message with non-LISTENING state)
-  const restore = (state) => {
-    if (state !== 'LISTENING') {
-      btn.classList.remove('fired');
-      btn.innerHTML = '&#9654; TALK';
-      btn.disabled = false;
-      _triggerListeners.delete(restore);
-    }
-  };
-  _triggerListeners.add(restore);
+  if (state === 'LISTENING') {
+    btn.classList.add('fired');
+    btn.innerHTML = '&#9632; STOP';
+    btn.disabled = false;
+  } else if (state === 'PROCESSING') {
+    btn.classList.add('fired');
+    btn.innerHTML = '&#8987; processing…';
+    btn.disabled = true;
+  } else {
+    btn.classList.remove('fired');
+    btn.innerHTML = '&#9654; TALK';
+    btn.disabled = false;
+  }
 }
-const _triggerListeners = new Set();
+
+async function manualTrigger() {
+  if (_fsm === 'LISTENING') {
+    await fetch('/api/stop-listen', { method: 'POST' });
+  } else if (_fsm === 'IDLE') {
+    await fetch('/api/trigger', { method: 'POST' });
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Init

@@ -47,6 +47,12 @@ async def api_trigger():
     return JSONResponse({"ok": True})
 
 
+@app.post("/api/stop-listen")
+async def api_stop_listen():
+    state_bus.stop_listening.set()
+    return JSONResponse({"ok": True})
+
+
 @app.get("/api/sim-history")
 async def api_sim_history():
     return JSONResponse({"history": list(state_bus.sim_history)})

@@ -16,9 +16,21 @@ Serial protocol (chaos_hal.ino, 115200 baud, 10 Hz):
 import asyncio
 import math
 import os
+import queue
 import random
 
 STUB = os.getenv("STUB_HARDWARE", "0") == "1"
+
+# ── Outgoing command queue (thread-safe: tools write, async loop drains) ──────
+_cmd_q: queue.SimpleQueue = queue.SimpleQueue()
+
+
+def send_command(line: str) -> None:
+    """Send a serial command to the Arduino. Safe to call from any thread."""
+    if STUB:
+        print(f"[serial stub] {line}")
+        return
+    _cmd_q.put_nowait(line.rstrip("\n") + "\n")
 
 robot_state = {
     "imu":     {},
@@ -79,22 +91,28 @@ async def _serial_run(port: str):
     import serial_asyncio
     while True:
         try:
-            reader, _ = await serial_asyncio.open_serial_connection(url=port, baudrate=115200)
+            reader, writer = await serial_asyncio.open_serial_connection(url=port, baudrate=115200)
             print(f"[serial] connected on {port}")
             while True:
-                raw  = await reader.readline()
-                line = raw.decode(errors="ignore").strip()
-                if line.startswith("$"):
-                    parse_line(line)
+                # Drain outgoing command queue first
+                while not _cmd_q.empty():
+                    cmd = _cmd_q.get_nowait()
+                    writer.write(cmd.encode())
+                    await writer.drain()
+                # Read one sensor line (short timeout so commands aren't delayed)
+                try:
+                    raw  = await asyncio.wait_for(reader.readline(), timeout=0.1)
+                    line = raw.decode(errors="ignore").strip()
+                    if line.startswith("$"):
+                        parse_line(line)
+                except asyncio.TimeoutError:
+                    pass
         except serial.SerialException as e:
             if "[Errno 2]" in str(e):
-                # Port doesn't exist - Arduino not plugged in. Fall back to stub
-                # rather than spamming retries.
                 print(f"[serial] {port} not found - falling back to stub mode")
                 print(f"[serial] set SERIAL_PORT in .env and restart when Arduino is connected")
                 await _stub_run()
                 return
-            # Other serial errors (e.g. device disconnected mid-run) - retry
             print(f"[serial] {port} lost ({e}) - retrying in 5 s ...")
             await asyncio.sleep(5)
 

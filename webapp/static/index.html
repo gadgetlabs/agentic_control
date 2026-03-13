@@ -59,9 +59,9 @@
   .badge.thinking { background: #102a4c; color: var(--blue); }
   .badge.sad      { background: #0d2b4e; color: #79c0ff; }
   .badge.angry    { background: #4a1515; color: var(--red); }
-  .badge.listening { background: #3d2b00; color: var(--orange); }
+  .badge.listening  { background: #3d2b00; color: var(--orange); }
   .badge.processing { background: #1b0a40; color: var(--purple); }
-  .badge.speaking  { background: #1a4a25; color: var(--green); }
+  .badge.speaking   { background: #1a4a25; color: var(--green); }
 
   .ws-dot {
     width: 8px; height: 8px;
@@ -88,10 +88,10 @@
   #trigger-btn.fired  { background: var(--orange); }
   .spacer { flex: 1; }
 
-  /* ── Main layout ── */
+  /* ── Main layout: 3 columns ── */
   main {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 160px 1fr;
     gap: 12px;
     padding: 12px;
     flex: 1;
@@ -196,9 +196,9 @@
     flex-wrap: wrap;
   }
   .phase-step {
-    padding: 3px 10px;
+    padding: 3px 8px;
     border-radius: 12px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     background: var(--border);
     color: var(--muted);
@@ -211,22 +211,22 @@
   .sensor-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 6px;
   }
   .sensor-card {
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 8px 10px;
+    padding: 6px 8px;
   }
-  .sensor-card .s-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .sensor-card .s-label { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
   .sensor-card .s-value {
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: var(--text);
   }
-  .sensor-card .s-unit { font-size: 11px; color: var(--muted); margin-left: 2px; }
+  .sensor-card .s-unit { font-size: 10px; color: var(--muted); margin-left: 2px; }
 
   /* ── Text fields ── */
   .text-field { display: flex; flex-direction: column; gap: 3px; }
@@ -241,6 +241,61 @@
     min-height: 28px;
     word-break: break-word;
   }
+
+  /* ── D-pad ── */
+  .dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 44px);
+    grid-template-rows: repeat(3, 44px);
+    gap: 4px;
+    margin: 0 auto;
+    user-select: none;
+  }
+  .dpad-btn {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dpad-btn:active,
+  .dpad-btn.pressed { background: var(--blue); border-color: var(--blue); }
+  .dpad-btn.stop-btn { font-size: 11px; font-weight: 700; }
+  .dpad-btn.stop-btn.pressed { background: var(--red); border-color: var(--red); }
+  .dpad-empty { visibility: hidden; }
+
+  /* ── Emotion buttons ── */
+  .emotion-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+  .emo-btn {
+    padding: 7px 4px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .emo-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .emo-btn.idle    { color: var(--muted); }
+  .emo-btn.happy   { border-color: var(--green);  color: var(--green); }
+  .emo-btn.thinking{ border-color: var(--blue);   color: var(--blue); }
+  .emo-btn.sad     { border-color: #79c0ff;        color: #79c0ff; }
+  .emo-btn.angry   { border-color: var(--red);     color: var(--red); }
 
   /* ── Scrollbar ── */
   ::-webkit-scrollbar { width: 4px; }
@@ -261,15 +316,13 @@
 </header>
 
 <main>
-  <!-- ── LEFT PANEL ── -->
+  <!-- ── LEFT: audio + lidar ── -->
   <div style="display:flex;flex-direction:column;gap:12px;overflow:hidden">
 
-    <!-- Similarity chart panel -->
     <div class="panel" style="flex:0 0 auto">
       <div class="panel-header">Wake Word Similarity</div>
       <div class="panel-body">
         <canvas id="sim-canvas" width="600" height="110"></canvas>
-
         <div class="score-row">
           <div id="sim-score">–</div>
           <div class="score-meta">
@@ -279,7 +332,6 @@
             <div class="value" id="fsm-text">IDLE</div>
           </div>
         </div>
-
         <div class="peak-wrap">
           <span class="peak-label">Peak amp</span>
           <div class="peak-bar-bg"><div id="peak-bar"></div></div>
@@ -288,9 +340,8 @@
       </div>
     </div>
 
-    <!-- Lidar panel -->
     <div class="panel" style="flex:1;min-height:0">
-      <div class="panel-header">Lidar (front arc)</div>
+      <div class="panel-header">Lidar (polar)</div>
       <div class="panel-body" style="padding:8px">
         <canvas id="lidar-canvas" width="400" height="140"></canvas>
         <div style="font-size:11px;color:var(--muted);text-align:center" id="lidar-status">no data</div>
@@ -299,23 +350,57 @@
 
   </div>
 
-  <!-- ── RIGHT PANEL ── -->
+  <!-- ── MIDDLE: controls ── -->
   <div style="display:flex;flex-direction:column;gap:12px;overflow:hidden">
 
-    <!-- Pipeline panel -->
+    <div class="panel" style="flex:0 0 auto">
+      <div class="panel-header">Drive</div>
+      <div class="panel-body" style="padding:10px;align-items:center">
+        <!-- 3x3 D-pad grid -->
+        <div class="dpad" id="dpad">
+          <div class="dpad-empty"></div>
+          <button class="dpad-btn" id="btn-fwd"   title="Forward">▲</button>
+          <div class="dpad-empty"></div>
+          <button class="dpad-btn" id="btn-left"  title="Left">◄</button>
+          <button class="dpad-btn stop-btn" id="btn-stop" title="Stop">■</button>
+          <button class="dpad-btn" id="btn-right" title="Right">►</button>
+          <div class="dpad-empty"></div>
+          <button class="dpad-btn" id="btn-back"  title="Reverse">▼</button>
+          <div class="dpad-empty"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="flex:0 0 auto">
+      <div class="panel-header">Emotion</div>
+      <div class="panel-body" style="padding:8px">
+        <div class="emotion-grid">
+          <button class="emo-btn idle"    onclick="setEmotion('idle')">😐 Idle</button>
+          <button class="emo-btn happy"   onclick="setEmotion('happy')">😊 Happy</button>
+          <button class="emo-btn thinking" onclick="setEmotion('thinking')">🤔 Think</button>
+          <button class="emo-btn sad"     onclick="setEmotion('sad')">😢 Sad</button>
+          <button class="emo-btn angry"   onclick="setEmotion('angry')">😠 Angry</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── RIGHT: pipeline + sensors ── -->
+  <div style="display:flex;flex-direction:column;gap:12px;overflow:hidden">
+
     <div class="panel" style="flex:0 0 auto">
       <div class="panel-header">Pipeline</div>
       <div class="panel-body">
         <div class="phase-flow">
           <span class="phase-step" id="ph-idle">idle</span>
           <span class="phase-arrow">›</span>
-          <span class="phase-step" id="ph-transcribing">transcribing</span>
+          <span class="phase-step" id="ph-transcribing">stt</span>
           <span class="phase-arrow">›</span>
-          <span class="phase-step" id="ph-thinking">thinking</span>
+          <span class="phase-step" id="ph-thinking">think</span>
           <span class="phase-arrow">›</span>
-          <span class="phase-step" id="ph-speaking">speaking</span>
+          <span class="phase-step" id="ph-speaking">speak</span>
         </div>
-
         <div class="text-field">
           <div class="tf-label">Heard</div>
           <div class="tf-value" id="pipe-heard">–</div>
@@ -331,10 +416,10 @@
       </div>
     </div>
 
-    <!-- Sensors panel -->
     <div class="panel" style="flex:1;min-height:0">
       <div class="panel-header">Sensors</div>
       <div class="panel-body">
+        <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:1px">MOTION</div>
         <div class="sensor-grid">
           <div class="sensor-card">
             <div class="s-label">RPM Left</div>
@@ -345,28 +430,52 @@
             <div><span class="s-value" id="s-rpm-r">–</span></div>
           </div>
           <div class="sensor-card">
-            <div class="s-label">Odom X</div>
-            <div><span class="s-value" id="s-odom-x">–</span><span class="s-unit">m</span></div>
+            <div class="s-label">Odom Linear</div>
+            <div><span class="s-value" id="s-odom-lin">–</span><span class="s-unit">m</span></div>
           </div>
           <div class="sensor-card">
-            <div class="s-label">Odom Y</div>
-            <div><span class="s-value" id="s-odom-y">–</span><span class="s-unit">m</span></div>
+            <div class="s-label">Odom Angular</div>
+            <div><span class="s-value" id="s-odom-ang">–</span><span class="s-unit">rad/s</span></div>
+          </div>
+        </div>
+
+        <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:1px">ORIENTATION</div>
+        <div class="sensor-grid">
+          <div class="sensor-card">
+            <div class="s-label">Compass X</div>
+            <div><span class="s-value" id="s-cmp-x">–</span></div>
+          </div>
+          <div class="sensor-card">
+            <div class="s-label">Compass Y</div>
+            <div><span class="s-value" id="s-cmp-y">–</span></div>
+          </div>
+          <div class="sensor-card">
+            <div class="s-label">Compass Z</div>
+            <div><span class="s-value" id="s-cmp-z">–</span></div>
           </div>
           <div class="sensor-card">
             <div class="s-label">Heading</div>
             <div><span class="s-value" id="s-heading">–</span><span class="s-unit">°</span></div>
           </div>
+        </div>
+
+        <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:1px">IMU</div>
+        <div class="sensor-grid">
           <div class="sensor-card">
-            <div class="s-label">Compass</div>
-            <div><span class="s-value" id="s-compass">–</span><span class="s-unit">°</span></div>
+            <div class="s-label">Accel X</div>
+            <div><span class="s-value" id="s-ax">–</span><span class="s-unit">m/s²</span></div>
           </div>
           <div class="sensor-card">
-            <div class="s-label">IMU Roll</div>
-            <div><span class="s-value" id="s-roll">–</span><span class="s-unit">°</span></div>
+            <div class="s-label">Accel Y</div>
+            <div><span class="s-value" id="s-ay">–</span><span class="s-unit">m/s²</span></div>
           </div>
           <div class="sensor-card">
-            <div class="s-label">IMU Pitch</div>
-            <div><span class="s-value" id="s-pitch">–</span><span class="s-unit">°</span></div>
+            <div class="s-label">Accel Z</div>
+            <div><span class="s-value" id="s-az">–</span><span class="s-unit">m/s²</span></div>
+          </div>
+          <div class="sensor-card">
+            <div class="s-label">Gyro Z</div>
+            <div><span class="s-value" id="s-gz">–</span><span class="s-unit">°/s</span></div>
           </div>
         </div>
       </div>
@@ -379,28 +488,23 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Config
 // ─────────────────────────────────────────────────────────────────────────────
-const CHART_POINTS   = 120;
-const THRESHOLD      = 0.20;   // SimpleWakeWords default; matches WAKE_WORD_THRESHOLD env
-const POLL_INTERVAL  = 1000;   // ms, cold path
-const WS_RECONNECT   = 3000;   // ms
+const CHART_POINTS  = 120;
+const THRESHOLD     = 0.20;
+const POLL_INTERVAL = 1000;
+const WS_RECONNECT  = 3000;
+const DRIVE_HZ      = 150;   // ms between heartbeat drive commands
 
-// Chart Y range: -1.0 (bottom) to +1.0 (top), zero in middle.
-// sim values typically live in [-0.3, +0.25]; threshold line at +0.20.
-const Y_MIN = -1.0;
-const Y_MAX =  1.0;
-const Y_RANGE = Y_MAX - Y_MIN;
-
+const Y_MIN = -1.0, Y_MAX = 1.0, Y_RANGE = Y_MAX - Y_MIN;
 function simToY(sim, H) {
-  // map sim value to canvas pixel Y (top = high value)
   return H * (1 - (Math.min(Math.max(sim, Y_MIN), Y_MAX) - Y_MIN) / Y_RANGE);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Similarity chart
 // ─────────────────────────────────────────────────────────────────────────────
-const simCanvas  = document.getElementById('sim-canvas');
-const simCtx     = simCanvas.getContext('2d');
-const simData    = [];  // {sim, state} rolling window
+const simCanvas = document.getElementById('sim-canvas');
+const simCtx    = simCanvas.getContext('2d');
+const simData   = [];
 
 function resizeCanvas(canvas) {
   const rect = canvas.getBoundingClientRect();
@@ -412,9 +516,9 @@ function resizeCanvas(canvas) {
 
 function stateColour(state) {
   switch (state) {
-    case 'LISTENING':   return '#d29922';
-    case 'PROCESSING':  return '#bc8cff';
-    default:            return '#58a6ff';
+    case 'LISTENING':  return '#d29922';
+    case 'PROCESSING': return '#bc8cff';
+    default:           return '#58a6ff';
   }
 }
 
@@ -423,7 +527,6 @@ function drawSimChart() {
   const W = simCanvas.width, H = simCanvas.height;
   simCtx.clearRect(0, 0, W, H);
 
-  // grid lines at -0.5, 0, +0.5
   simCtx.strokeStyle = '#21262d';
   simCtx.lineWidth   = 1;
   [-0.5, 0.5].forEach(v => {
@@ -431,13 +534,11 @@ function drawSimChart() {
     simCtx.beginPath(); simCtx.moveTo(0, py); simCtx.lineTo(W, py); simCtx.stroke();
   });
 
-  // zero line — bright enough to read, not distracting
   const zy = simToY(0, H);
   simCtx.strokeStyle = '#30363d';
   simCtx.lineWidth   = 1.5;
   simCtx.beginPath(); simCtx.moveTo(0, zy); simCtx.lineTo(W, zy); simCtx.stroke();
 
-  // threshold line
   const ty = simToY(THRESHOLD, H);
   simCtx.strokeStyle = '#f85149';
   simCtx.lineWidth   = 1.5;
@@ -446,23 +547,17 @@ function drawSimChart() {
   simCtx.setLineDash([]);
 
   if (simData.length < 2) return;
-
   const step = W / (CHART_POINTS - 1);
   const startIdx = Math.max(0, simData.length - CHART_POINTS);
-
-  // draw each segment with its colour
   for (let i = startIdx; i < simData.length - 1; i++) {
     const a = simData[i], b = simData[i + 1];
     const xi  = (i - startIdx)     * step;
     const xi1 = (i - startIdx + 1) * step;
-    const ya  = simToY(a.sim, H);
-    const yb  = simToY(b.sim, H);
-
     simCtx.strokeStyle = stateColour(b.state);
     simCtx.lineWidth   = 2;
     simCtx.beginPath();
-    simCtx.moveTo(xi, ya);
-    simCtx.lineTo(xi1, yb);
+    simCtx.moveTo(xi,  simToY(a.sim, H));
+    simCtx.lineTo(xi1, simToY(b.sim, H));
     simCtx.stroke();
   }
 }
@@ -474,50 +569,48 @@ function pushSimPoint(sim, state) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Lidar polar chart
+// Lidar polar
+// robot_state.lidar = flat array, index = angle_deg (0-359), value = dist_mm
 // ─────────────────────────────────────────────────────────────────────────────
 const lidarCanvas = document.getElementById('lidar-canvas');
 const lidarCtx    = lidarCanvas.getContext('2d');
 
-function drawLidar(readings) {
-  // readings: array of {angle_deg, dist_m} or flat array indexed by angle
+function drawLidar(lidar) {
   resizeCanvas(lidarCanvas);
   const W = lidarCanvas.width, H = lidarCanvas.height;
   lidarCtx.clearRect(0, 0, W, H);
 
-  if (!readings || readings.length === 0) {
+  if (!lidar || lidar.length === 0) {
     document.getElementById('lidar-status').textContent = 'no data';
     return;
   }
 
   const cx = W / 2, cy = H * 0.9;
-  const maxDist = 3.0;  // metres
-  const scale = (H * 0.85) / maxDist;
+  const maxDist = 3000;  // mm
+  const scale   = (H * 0.85) / maxDist;
 
-  // grid rings
   lidarCtx.strokeStyle = '#21262d';
   lidarCtx.lineWidth   = 1;
-  for (let r = 1; r <= 3; r++) {
+  [1000, 2000, 3000].forEach(r => {
     lidarCtx.beginPath();
     lidarCtx.arc(cx, cy, r * scale, Math.PI, 0);
     lidarCtx.stroke();
-  }
+  });
 
-  // plot points
   lidarCtx.fillStyle = '#3fb950';
-  readings.forEach(p => {
-    const angle = (Array.isArray(p) ? p[0] : p.angle_deg) * Math.PI / 180;
-    const dist  = Array.isArray(p) ? p[1] : p.dist_m;
-    if (!dist || dist > maxDist) return;
-    const px = cx + Math.sin(angle - Math.PI) * dist * scale;
-    const py = cy - Math.cos(angle - Math.PI) * dist * scale;
+  let pts = 0;
+  lidar.forEach((mm, deg) => {
+    if (!mm || mm <= 0 || mm > maxDist) return;
+    const rad = deg * Math.PI / 180;
+    const px  = cx + Math.sin(rad) * mm * scale;
+    const py  = cy - Math.cos(rad) * mm * scale;
     lidarCtx.beginPath();
     lidarCtx.arc(px, py, 2, 0, Math.PI * 2);
     lidarCtx.fill();
+    pts++;
   });
 
-  document.getElementById('lidar-status').textContent =
-    `${readings.length} points`;
+  document.getElementById('lidar-status').textContent = `${pts} points`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -527,32 +620,89 @@ function setText(id, val) {
   const el = document.getElementById(id);
   if (el) el.textContent = (val !== undefined && val !== null && val !== '') ? val : '–';
 }
+function fmt(v, dec) { return v !== undefined && v !== null ? v.toFixed(dec) : null; }
 
 function updateFSMBadge(state) {
   const el = document.getElementById('fsm-badge');
   el.textContent = state;
   el.className   = 'badge ' + state.toLowerCase();
 }
-
 function updateEmotionBadge(emotion) {
   const el = document.getElementById('emotion-badge');
   el.textContent = emotion;
   el.className   = 'badge ' + emotion.toLowerCase();
 }
-
 function updatePhase(phase) {
   ['idle', 'transcribing', 'thinking', 'speaking'].forEach(p => {
     const el = document.getElementById('ph-' + p);
     if (el) el.classList.toggle('active', p === phase);
   });
 }
-
 function updatePeak(peak) {
   const pct = Math.min(peak * 100, 100);
   const bar  = document.getElementById('peak-bar');
   bar.style.width = pct + '%';
   bar.style.background = peak > 0.5 ? '#f85149' : peak > 0.2 ? '#d29922' : '#3fb950';
   document.getElementById('peak-val').textContent = peak.toFixed(3);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Drive controls (hold-to-drive with heartbeat)
+// ─────────────────────────────────────────────────────────────────────────────
+let _driveTimer = null;
+let _driveT = 0, _driveS = 0;
+
+async function _sendDrive() {
+  try {
+    await fetch('/api/drive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ throttle: _driveT, steering: _driveS }),
+    });
+  } catch {}
+}
+
+function startDrive(t, s) {
+  _driveT = t; _driveS = s;
+  _sendDrive();
+  if (!_driveTimer) _driveTimer = setInterval(_sendDrive, DRIVE_HZ);
+}
+
+async function stopRobot() {
+  if (_driveTimer) { clearInterval(_driveTimer); _driveTimer = null; }
+  try { await fetch('/api/stop', { method: 'POST' }); } catch {}
+}
+
+async function setEmotion(name) {
+  try { await fetch('/api/emotion/' + name, { method: 'POST' }); } catch {}
+}
+
+// D-pad button bindings
+// Each entry: [elementId, throttle, steering]
+const DPAD_BINDINGS = [
+  ['btn-fwd',   0.6,  0.0],
+  ['btn-back', -0.6,  0.0],
+  ['btn-left',  0.0, -0.7],
+  ['btn-right', 0.0,  0.7],
+];
+
+function _bindDpad() {
+  DPAD_BINDINGS.forEach(([id, t, s]) => {
+    const btn = document.getElementById(id);
+    const press = () => { btn.classList.add('pressed'); startDrive(t, s); };
+    const release = () => { btn.classList.remove('pressed'); stopRobot(); };
+    btn.addEventListener('mousedown',  press);
+    btn.addEventListener('touchstart', press,   { passive: true });
+    btn.addEventListener('mouseup',    release);
+    btn.addEventListener('mouseleave', release);
+    btn.addEventListener('touchend',   release);
+    btn.addEventListener('touchcancel',release);
+  });
+
+  const stopBtn = document.getElementById('btn-stop');
+  stopBtn.addEventListener('click', () => { stopRobot(); });
+  stopBtn.addEventListener('mousedown',  () => stopBtn.classList.add('pressed'));
+  stopBtn.addEventListener('mouseup',    () => stopBtn.classList.remove('pressed'));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -563,8 +713,7 @@ let wsReconnectTimer = null;
 
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const url   = `${proto}://${location.host}/ws/audio`;
-  ws          = new WebSocket(url);
+  ws = new WebSocket(`${proto}://${location.host}/ws/audio`);
 
   ws.onopen = () => {
     document.getElementById('ws-dot').classList.add('connected');
@@ -575,10 +724,9 @@ function connectWS() {
   ws.onmessage = (ev) => {
     let d;
     try { d = JSON.parse(ev.data); } catch { return; }
-    const sim   = parseFloat(d.sim)   || 0;
+    const sim   = parseFloat(d.sim)  || 0;
     const state = d.state || 'IDLE';
-    const peak  = parseFloat(d.peak)  || 0;
-
+    const peak  = parseFloat(d.peak) || 0;
     pushSimPoint(sim, state);
     setText('sim-score',    sim.toFixed(3));
     setText('threshold-val', THRESHOLD.toFixed(2));
@@ -604,35 +752,49 @@ async function pollState() {
     if (!res.ok) return;
     const data = await res.json();
 
-    // emotion
     updateEmotionBadge(data.emotion || 'idle');
 
-    // pipeline
     const pipe = data.pipeline || {};
     updatePhase(pipe.phase || 'idle');
     setText('pipe-heard',    pipe.heard);
     setText('pipe-intent',   pipe.intent);
     setText('pipe-response', pipe.response);
 
-    // sensors
     const s = data.sensors || {};
-    setText('s-rpm-l',   s.rpm_left   !== undefined ? s.rpm_left.toFixed(0)   : null);
-    setText('s-rpm-r',   s.rpm_right  !== undefined ? s.rpm_right.toFixed(0)  : null);
-    setText('s-odom-x',  s.odom_x     !== undefined ? s.odom_x.toFixed(2)     : null);
-    setText('s-odom-y',  s.odom_y     !== undefined ? s.odom_y.toFixed(2)     : null);
-    setText('s-heading', s.heading    !== undefined ? s.heading.toFixed(1)    : null);
-    setText('s-compass', s.compass    !== undefined ? s.compass.toFixed(1)    : null);
-    setText('s-roll',    s.imu_roll   !== undefined ? s.imu_roll.toFixed(1)   : null);
-    setText('s-pitch',   s.imu_pitch  !== undefined ? s.imu_pitch.toFixed(1)  : null);
 
-    // lidar (optional — only if sensor data includes it)
-    if (s.lidar) drawLidar(s.lidar);
+    // Motion
+    const rpm  = s.rpm  || {};
+    const odom = s.odom || {};
+    setText('s-rpm-l',    fmt(rpm.left,  0));
+    setText('s-rpm-r',    fmt(rpm.right, 0));
+    setText('s-odom-lin', fmt(odom.linear,  2));
+    setText('s-odom-ang', fmt(odom.angular, 3));
 
-  } catch { /* network error — keep polling */ }
+    // Compass / heading
+    const cmp = s.compass || {};
+    setText('s-cmp-x',   fmt(cmp.x, 1));
+    setText('s-cmp-y',   fmt(cmp.y, 1));
+    setText('s-cmp-z',   fmt(cmp.z, 1));
+    if (cmp.x !== undefined && cmp.y !== undefined) {
+      const heading = (Math.atan2(cmp.y, cmp.x) * 180 / Math.PI + 360) % 360;
+      setText('s-heading', heading.toFixed(1));
+    }
+
+    // IMU
+    const imu = s.imu || {};
+    setText('s-ax', fmt(imu.ax, 2));
+    setText('s-ay', fmt(imu.ay, 2));
+    setText('s-az', fmt(imu.az, 2));
+    setText('s-gz', fmt(imu.gz, 2));
+
+    // Lidar
+    if (Array.isArray(s.lidar) && s.lidar.length > 0) drawLidar(s.lidar);
+
+  } catch { /* network hiccup — keep polling */ }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Talk / Stop toggle — driven by FSM state from WebSocket
+// Talk / Stop toggle
 // ─────────────────────────────────────────────────────────────────────────────
 let _fsm = 'IDLE';
 
@@ -642,15 +804,15 @@ function _updateTriggerBtn(state) {
   if (state === 'LISTENING') {
     btn.classList.add('fired');
     btn.innerHTML = '&#9632; STOP';
-    btn.disabled = false;
+    btn.disabled  = false;
   } else if (state === 'PROCESSING') {
     btn.classList.add('fired');
     btn.innerHTML = '&#8987; processing…';
-    btn.disabled = true;
+    btn.disabled  = true;
   } else {
     btn.classList.remove('fired');
     btn.innerHTML = '&#9654; TALK';
-    btn.disabled = false;
+    btn.disabled  = false;
   }
 }
 
@@ -666,19 +828,19 @@ async function manualTrigger() {
 // Init
 // ─────────────────────────────────────────────────────────────────────────────
 (async () => {
-  // pre-fill chart from history endpoint
+  _bindDpad();
+
   try {
     const res  = await fetch('/api/sim-history');
     const data = await res.json();
     (data.history || []).forEach(h => pushSimPoint(h.sim || 0, h.state || 'IDLE'));
-  } catch { /* ignore */ }
+  } catch {}
 
   document.getElementById('threshold-val').textContent = THRESHOLD.toFixed(2);
   connectWS();
   setInterval(pollState, POLL_INTERVAL);
   pollState();
 
-  // redraw chart on window resize
   window.addEventListener('resize', drawSimChart);
 })();
 </script>
